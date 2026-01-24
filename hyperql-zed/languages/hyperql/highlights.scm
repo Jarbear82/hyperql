@@ -91,12 +91,10 @@
 ;;; --- DEFINITIONS (Distinct from Usage) ---
 
 ; 1. Field Definitions (e.g. DEFINE FIELD name)
-; Using @function makes them stand out from standard properties
 (define_field 
   name: (identifier) @function)
 
 ; 2. Role Definitions (e.g. DEFINE ROLE name)
-; Using @type.builtin makes them distinct from fields
 (define_role 
   name: (identifier) @type.builtin)
 
@@ -110,7 +108,7 @@
 
 ;;; --- TYPES ---
 
-; Built-in types (captured as strings in your grammar?)
+; Built-in types
 [
   "String" "Int" "Int32" "Float" "Bool" "Date" 
   "UUID" "Interval" "Time" "Decimal" "Path" 
@@ -131,9 +129,7 @@
 (property_access property: (identifier) @property)
 
 ; 2. Roles (Usage) - Distinct "Special" Color
-; Used in edge creation: role -> value
 (role_assignment (identifier) @variable.special)
-; Used in definition: role: RoleType
 (role_definition name: (identifier) @variable.special)
 
 ; 3. Standard Variables

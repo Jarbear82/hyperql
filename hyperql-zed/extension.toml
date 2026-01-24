@@ -7,5 +7,5 @@ description = "HyperQL support for Zed"
 repository = "https://github.com/jarbear82/hyperql"
 
 [grammars.hyperql]
-repository = "https://github.com/jarbear82/hyperql"
-rev = "613324382eb504d91a76420b201cc46d41aded9d"
+repository = "file:///home/jarbear82/Documents/tree-sitter/tree-sitter-hyperql"
+rev = "HEAD"
