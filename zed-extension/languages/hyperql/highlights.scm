@@ -105,7 +105,46 @@
 "Enum" @type
 "Struct" @type
 
-; Type Captures in Nodes
+; --- 1. Definitions (Distinct from Usage) ---
+
+; Highlight the name in 'DEFINE FIELD name : Type'
+(define_field name: (identifier) @function.method)
+
+; Highlight the name in 'DEFINE ROLE name'
+(define_role name: (identifier) @type.builtin)
+
+; Highlight the name in 'DEFINE NODE/EDGE/STRUCT/TRAIT/ENUM'
+(define_node name: (identifier) @type.definition)
+(define_edge name: (identifier) @type.definition)
+(define_struct name: (identifier) @type.definition)
+(define_trait name: (identifier) @type.definition)
+(define_enum name: (identifier) @type.definition)
+
+; --- 2. Roles (Distinct from Fields) ---
+
+; Highlight Role Definition: 'role_name : RoleType (ONE)'
+(role_definition name: (identifier) @variable.special)
+
+; Highlight Role Assignment: 'role_name -> value'
+(role_assignment (identifier) @variable.special)
+
+; --- 3. Decorators & Cardinality ---
+
+; Highlight '@decorator'
+(decorator) @attribute
+
+; Highlight '(ONE)' and '(MANY)'
+(role_definition cardinality: _ @keyword)
+
+; --- 4. Special Graph Elements ---
+
+; Highlight the 'path_var' in 'MATCH PATH p = ...'
+(match_path_clause path_var: (identifier) @variable.special)
+
+; Highlight weights
+(edge_pattern weight_field: (identifier) @number)
+
+; --- 5. Type Captures ---
 (define_field type: (_) @type)
 (create_node_clause type: (identifier) @type)
 (create_edge_clause type: (identifier) @type)
@@ -124,7 +163,6 @@
 
 ; Properties & Variables
 (property_assignment (identifier) @property)
-(role_assignment (identifier) @property)
 (assignment_expression (property_access property: (identifier) @property))
 (property_access property: (identifier) @property)
 (variable) @variable
