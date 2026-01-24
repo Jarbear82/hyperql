@@ -32,3 +32,11 @@ target/
 # Note: We explicitly DO NOT ignore 'src/' or 'binding.gyp'.
 # These are required for other tools (like Neovim or Rust) to build
 # the parser without needing Node.js installed.
+
+# Ignore standard tree-sitter build artifacts
+/src/parser.c
+/src/tree_sitter/
+*.target.mk
+
+# DO NOT ignore the wasm file needed for the Zed extension
+!/grammars/hyperql.wasm

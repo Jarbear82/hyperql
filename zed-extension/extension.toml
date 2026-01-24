@@ -1,0 +1,10 @@
+id = "hyperql"
+name = "HyperQL"
+version = "0.1.0"
+schema_version = 1
+authors = ["jarbear82"]
+description = "HyperQL support for Zed"
+repository = "https://github.com/jarbear82/hyperql"
+
+[grammars.hyperql]
+path = "grammars/hyperql.wasm"
