@@ -1,0 +1,257 @@
+==================
+Basic Match
+==================
+MATCH (n:Person)
+RETURN n
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)
+            (identifier)))))
+    (return_clause
+      (identifier))))
+
+==================
+Cross-Type Global Search
+==================
+MATCH (n) CROSS_TYPE
+WHERE n.LastName = "Smith"
+RETURN n, TYPE(n)
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)))))
+    (where_clause
+      (binary_expression
+        (property_access
+          (identifier)
+          (identifier))
+        (string_literal)))
+    (return_clause
+      (identifier)
+      (function_call
+        (identifier)
+        (identifier)))))
+
+==================
+Merge with On Create/Match
+==================
+MERGE (e:Enrollment { student: (s), course: (c) })
+ON CREATE SET e.Date = NOW()
+ON MATCH SET e.Updated = true
+---
+
+(source_file
+  (manipulation_statement
+    (merge_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)
+            (identifier)
+            (map_literal
+              (identifier)
+              (identifier)
+              (identifier)
+              (identifier)))))
+      (on_action
+        (assignment_expression
+          (property_access
+            (identifier)
+            (identifier))
+          (function_call
+            (identifier))))
+      (on_action
+        (assignment_expression
+          (property_access
+            (identifier)
+            (identifier))
+          (boolean_literal))))))
+
+==================
+Atomic Set Arithmetic
+==================
+MATCH (c:Commute)
+SET c.passengers += (new_passenger)
+SET c.passengers -= (old_passenger)
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)
+            (identifier)))))
+    (set_clause
+      (atomic_append
+        (property_access
+          (identifier)
+          (identifier))
+        (identifier)))
+    (set_clause
+      (atomic_remove
+        (property_access
+          (identifier)
+          (identifier))
+        (identifier)))))
+
+==================
+Match Path with Weight By (Algorithms)
+==================
+MATCH PATH p = (a)-[:Link* WEIGHT BY latency USING MAX]->(b)
+RETURN p
+---
+
+(source_file
+  (manipulation_statement
+    (match_path_clause
+      (identifier)
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier))
+          (edge_pattern
+            (identifier)
+            (identifier))
+          (node_pattern
+            (identifier)))))
+    (return_clause
+      (identifier))))
+
+==================
+Subquery: EXISTS
+==================
+MATCH (p:Person)
+WHERE EXISTS (
+  MATCH (c:Commute {driver: (p)})
+  WHERE c.Date > "2025-01-01"
+)
+RETURN p.Name
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)
+            (identifier)))))
+    (where_clause
+      (subquery_expression
+        (manipulation_statement
+          (match_clause
+            (pattern
+              (path_pattern
+                (node_pattern
+                  (identifier)
+                  (identifier)
+                  (map_literal
+                    (identifier)
+                    (identifier))))))
+          (where_clause
+            (binary_expression
+              (property_access
+                (identifier)
+                (identifier))
+              (string_literal))))))
+    (return_clause
+      (property_access
+        (identifier)
+        (identifier)))))
+
+==================
+Window Functions
+==================
+MATCH (s:Sale)
+RETURN
+  s.Date,
+  SUM(s.Amount) OVER (ORDER BY s.Date) AS running_total,
+  RANK() OVER (PARTITION BY s.Product ORDER BY s.Amount DESC) AS product_rank
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)
+            (identifier)))))
+    (return_clause
+      (property_access
+        (identifier)
+        (identifier))
+      (window_function
+        (function_call
+          (identifier)
+          (property_access
+            (identifier)
+            (identifier)))
+        (property_access
+          (identifier)
+          (identifier)))
+      (identifier)
+      (window_function
+        (function_call
+          (identifier))
+        (property_access
+          (identifier)
+          (identifier))
+        (property_access
+          (identifier)
+          (identifier)))
+      (identifier))))
+
+==================
+Vector Similarity Search
+==================
+MATCH (p:Person)
+WHERE VECTOR_SIMILARITY(p.Embedding, $query_embedding) > 0.8
+RETURN p
+ORDER BY VECTOR_SIMILARITY(p.Embedding, $query_embedding) DESC
+LIMIT 10
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier)
+            (identifier)))))
+    (where_clause
+      (binary_expression
+        (function_call
+          (identifier)
+          (property_access
+            (identifier)
+            (identifier))
+          (variable
+            (identifier)))
+        (float_literal)))
+    (return_clause
+      (identifier))
+    (order_by_clause
+      (function_call
+        (identifier)
+        (property_access
+          (identifier)
+          (identifier))
+        (variable
+          (identifier))))
+    (limit_clause
+      (integer_literal))))

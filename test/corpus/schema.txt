@@ -1,0 +1,132 @@
+==================
+Define Namespace
+==================
+DEFINE NAMESPACE Core.Game;
+---
+
+(source_file
+  (definition_statement
+    (define_namespace
+      (namespace_identifier))))
+
+==================
+Define Enum
+==================
+DEFINE ENUM Status { ACTIVE, INACTIVE, PENDING }
+---
+
+(source_file
+  (definition_statement
+    (define_enum
+      (identifier)
+      (identifier)
+      (identifier)
+      (identifier))))
+
+==================
+Define Global Field with Decorators
+==================
+DEFINE FIELD Description: String @length(500);
+DEFINE FIELD Email: String @unique;
+---
+
+(source_file
+  (definition_statement
+    (define_field
+      (identifier)
+      (decorator
+        (identifier)
+        (integer_literal))))
+  (definition_statement
+    (define_field
+      (identifier)
+      (decorator
+        (identifier)))))
+
+==================
+Define Node with Inheritance
+==================
+DEFINE NODE Wizard EXTENDS [Entity, MagicUser] {
+  Id,
+  CreatedAt,
+  Name,
+  Mana
+}
+---
+
+(source_file
+  (definition_statement
+    (define_node
+      (identifier)
+      (extends_clause
+        (identifier)
+        (identifier))
+      (schema_body
+        (identifier)
+        (identifier)
+        (identifier)
+        (identifier)))))
+
+==================
+Define Edge with Roles and Cardinality
+==================
+DEFINE EDGE Commute EXTENDS [Transaction] {
+  TransactionDate,
+  driver: Driver (ONE),
+  passengers: Person (MANY) @optional
+}
+---
+
+(source_file
+  (definition_statement
+    (define_edge
+      (identifier)
+      (extends_clause
+        (identifier))
+      (schema_body
+        (identifier)
+        (role_definition
+          (identifier)
+          (identifier))
+        (role_definition
+          (identifier)
+          (identifier)
+          (decorator
+            (identifier)))))))
+
+==================
+Define Vector Index
+==================
+DEFINE FIELD Embedding: Vector<384> @index(vector, metric="cosine");
+---
+
+(source_file
+  (definition_statement
+    (define_field
+      (identifier)
+      (integer_literal)
+      (decorator
+        (identifier)
+        (identifier)
+        (binary_expression
+          (identifier)
+          (string_literal))))))
+
+==================
+Migration: Alter Node
+==================
+ALTER NODE User {
+  ADD MiddleName,
+  DROP OldField,
+  RENAME Login TO Username
+}
+---
+
+(source_file
+  (migration_statement
+    (alter
+      (identifier)
+      (identifier)
+      (identifier)
+      (identifier)
+      (identifier))))

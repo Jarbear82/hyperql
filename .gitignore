@@ -1,0 +1,34 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build artifacts (compiled binaries)
+build/
+Release/
+Debug/
+*.o
+*.a
+*.node
+
+# Prebuilds (if you use prebuildify for Node bindings)
+prebuilds/
+
+# Tree-sitter CLI cache and temp files
+.tree-sitter/
+
+# Cargo / Rust (if you are publishing a Rust crate)
+# Note: Do not ignore Cargo.lock if you want reproducible builds, 
+# but for libraries, it is sometimes ignored. Standard is usually to keep it.
+target/
+**/*.rs.bk
+
+# Editors and OS
+.DS_Store
+.vscode/
+.idea/
+*.swp
+
+# Note: We explicitly DO NOT ignore 'src/' or 'binding.gyp'.
+# These are required for other tools (like Neovim or Rust) to build
+# the parser without needing Node.js installed.
