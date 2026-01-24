@@ -7,4 +7,5 @@ description = "HyperQL support for Zed"
 repository = "https://github.com/jarbear82/hyperql"
 
 [grammars.hyperql]
-path = "grammars/hyperql.wasm"
+repository = "https://github.com/jarbear82/hyperql"
+commit = "ba6571c0ffabb67f42888a67b580fa0b4b901142"
