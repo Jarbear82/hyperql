@@ -20,6 +20,8 @@ module.exports = grammar({
         $.manipulation_statement,
         $.migration_statement,
         $.system_statement,
+        $.batch_statement,
+        $.begin_transaction,
       ),
 
     // ==========================================
@@ -40,7 +42,13 @@ module.exports = grammar({
       ),
 
     define_namespace: ($) =>
-      seq("DEFINE", "NAMESPACE", field("name", $.namespace_identifier), ";"),
+      seq(
+        "DEFINE",
+        "NAMESPACE",
+        field("name", $.namespace_identifier),
+        optional(seq("STRICT_MODE", "=", $.boolean_literal)),
+        ";"
+      ),
 
     define_enum: ($) =>
       seq(
@@ -206,6 +214,26 @@ module.exports = grammar({
         "ANALYZE",
       ),
 
+    batch_statement: ($) =>
+      seq(
+        "BATCH",
+        "{",
+        repeat($._statement),
+        "}",
+        $.return_clause,
+        ";"
+      ),
+
+    begin_transaction: ($) =>
+      seq(
+        "BEGIN",
+        optional(seq("ISOLATION", "LEVEL", $.isolation_level)),
+        optional("ON ERROR CONTINUE"),
+        ";"
+      ),
+
+    isolation_level: ($) => choice("READ UNCOMMITTED", "READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"),
+
     // ==========================================
     // 3. Query / Manipulation (DML)
     // ==========================================
@@ -221,7 +249,8 @@ module.exports = grammar({
         $.match_clause,
         $.match_path_clause,
         $.optional_match_clause,
-        $.create_clause,
+        $.create_node_clause,
+        $.create_edge_clause,
         $.merge_clause,
         $.set_clause,
         $.delete_clause,
@@ -268,15 +297,41 @@ module.exports = grammar({
 
     optional_match_clause: ($) => seq("OPTIONAL", "MATCH", $.pattern),
 
-    create_clause: ($) => seq("CREATE", $.pattern),
+    create_node_clause: ($) =>
+      seq(
+        "CREATE", "NODE",
+        field("variable", $.identifier),
+        ":",
+        field("type", $.identifier),
+        $.map_literal,
+        ";"
+      ),
+
+    create_edge_clause: ($) =>
+      seq(
+        "CREATE", "EDGE",
+        field("variable", $.identifier),
+        ":",
+        field("type", $.identifier),
+        "{",
+        commaSep(choice($.property_assignment, $.role_assignment)),
+        "}",
+        ";"
+      ),
 
     merge_clause: ($) =>
-      prec.right(seq(
+      seq(
         "MERGE",
-        choice("OBJECT", $.pattern),
-        optional(seq("WITH", $.variable)),
-        repeat($.on_action),
-      )),
+        "(",
+        field("variable", $.identifier),
+        ":",
+        field("type", $.identifier),
+        "{",
+        commaSep(choice($.property_assignment, $.role_assignment)),
+        "}",
+        ")",
+        repeat($.on_action)
+      ),
 
     on_action: ($) =>
       seq(
@@ -402,6 +457,10 @@ module.exports = grammar({
 
     unary_expression: ($) =>
       prec(10, choice(seq("!", $._expression), seq("-", $._expression))),
+
+    property_assignment: ($) => seq($.identifier, ":", $._expression),
+
+    role_assignment: ($) => seq($.identifier, "->", $._expression),
 
     assignment_expression: ($) => seq($.property_access, "=", $._expression),
 

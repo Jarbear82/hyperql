@@ -10,6 +10,18 @@ DEFINE NAMESPACE Core.Game;
       (namespace_identifier))))
 
 ==================
+Define Namespace Strict
+==================
+DEFINE NAMESPACE Core.Secure STRICT_MODE = true;
+---
+
+(source_file
+  (definition_statement
+    (define_namespace
+      (namespace_identifier)
+      (boolean_literal))))
+
+==================
 Define Enum
 ==================
 DEFINE ENUM Status { ACTIVE, INACTIVE, PENDING }

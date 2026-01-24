@@ -44,9 +44,51 @@ RETURN n, TYPE(n)
         (identifier)))))
 
 ==================
-Merge with On Create/Match
+Create Node
 ==================
-MERGE (e:Enrollment { student: (s), course: (c) })
+CREATE NODE u:User { name: "Alice", age: 30 };
+---
+
+(source_file
+  (manipulation_statement
+    (create_node_clause
+      (identifier)
+      (identifier)
+      (map_literal
+        (identifier)
+        (string_literal)
+        (identifier)
+        (integer_literal)))))
+
+==================
+Create Edge
+==================
+CREATE EDGE e:Follows {
+    created_at: "2023-01-01",
+    from -> u,
+    to -> v
+};
+---
+
+(source_file
+  (manipulation_statement
+    (create_edge_clause
+      (identifier)
+      (identifier)
+      (property_assignment
+        (identifier)
+        (string_literal))
+      (role_assignment
+        (identifier)
+        (identifier))
+      (role_assignment
+        (identifier)
+        (identifier)))))
+
+==================
+Merge with Roles
+==================
+MERGE (e:Enrollment { since: 2020, student -> s, course -> c })
 ON CREATE SET e.Date = NOW()
 ON MATCH SET e.Updated = true
 ---
@@ -54,16 +96,17 @@ ON MATCH SET e.Updated = true
 (source_file
   (manipulation_statement
     (merge_clause
-      (pattern
-        (path_pattern
-          (node_pattern
-            (identifier)
-            (identifier)
-            (map_literal
-              (identifier)
-              (identifier)
-              (identifier)
-              (identifier)))))
+      (identifier)
+      (identifier)
+      (property_assignment
+        (identifier)
+        (integer_literal))
+      (role_assignment
+        (identifier)
+        (identifier))
+      (role_assignment
+        (identifier)
+        (identifier))
       (on_action
         (assignment_expression
           (property_access
@@ -255,3 +298,37 @@ LIMIT 10
           (identifier))))
     (limit_clause
       (integer_literal))))
+
+==================
+Batch Statement
+==================
+BATCH {
+    CREATE NODE x:X {};
+    CREATE NODE y:Y {};
+} RETURN x, y;
+---
+
+(source_file
+  (batch_statement
+    (manipulation_statement
+      (create_node_clause
+        (identifier)
+        (identifier)
+        (map_literal))
+      (create_node_clause
+        (identifier)
+        (identifier)
+        (map_literal)))
+    (return_clause
+      (identifier)
+      (identifier))))
+
+==================
+Begin Transaction
+==================
+BEGIN ISOLATION LEVEL SERIALIZABLE ON ERROR CONTINUE;
+---
+
+(source_file
+  (begin_transaction
+    (isolation_level)))
