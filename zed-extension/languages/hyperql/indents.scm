@@ -7,4 +7,6 @@
   (batch_statement)
   (create_edge_clause)
   (merge_clause)
+  (transaction_statement)
+  (list_predicate)
 ] @indent

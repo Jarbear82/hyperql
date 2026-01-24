@@ -65,6 +65,13 @@
 "AVG" @keyword
 "CROSS_TYPE" @keyword
 "PATH" @keyword
+"ALL" @keyword
+"ANY" @keyword
+"NONE" @keyword
+"SINGLE" @keyword
+"COMMIT" @keyword
+"ROLLBACK" @keyword
+"OBJECT" @keyword
 
 ; Transaction & Isolation Phrases
 "READ UNCOMMITTED" @keyword

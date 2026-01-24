@@ -21,7 +21,7 @@ module.exports = grammar({
         $.migration_statement,
         $.system_statement,
         $.batch_statement,
-        $.begin_transaction,
+        $.transaction_statement,
       ),
 
     // ==========================================
@@ -224,12 +224,17 @@ module.exports = grammar({
         ";"
       ),
 
-    begin_transaction: ($) =>
-      seq(
-        "BEGIN",
-        optional(seq("ISOLATION", "LEVEL", $.isolation_level)),
-        optional("ON ERROR CONTINUE"),
-        ";"
+    transaction_statement: ($) =>
+      choice(
+        seq(
+          "BEGIN",
+          optional(seq("ISOLATION", "LEVEL", $.isolation_level)),
+          optional("ON ERROR CONTINUE"),
+          ";"
+        ),
+        seq("COMMIT", ";"),
+        seq("ROLLBACK", ";"),
+        seq("SET", "ISOLATION", "LEVEL", $.isolation_level, ";")
       ),
 
     isolation_level: ($) => choice("READ UNCOMMITTED", "READ COMMITTED", "REPEATABLE READ", "SERIALIZABLE"),
@@ -252,6 +257,7 @@ module.exports = grammar({
         $.create_node_clause,
         $.create_edge_clause,
         $.merge_clause,
+        $.merge_object_clause,
         $.set_clause,
         $.delete_clause,
         $.detach_delete_clause,
@@ -269,6 +275,15 @@ module.exports = grammar({
 
     import_clause: ($) => seq("IMPORT", $.string_literal, "AS", $.identifier),
 
+    merge_object_clause: ($) =>
+      seq(
+        "MERGE",
+        "OBJECT",
+        field("variable", $.identifier),
+        "WITH",
+        field("map", $._expression),
+      ),
+
     match_clause: ($) =>
       seq(
         "MATCH",
@@ -284,7 +299,6 @@ module.exports = grammar({
         field("path_var", $.identifier),
         "=",
         $.pattern,
-        optional($._weight_clause),
       ),
 
     _weight_clause: ($) =>
@@ -409,11 +423,18 @@ module.exports = grammar({
         "[",
         optional(field("variable", $.identifier)),
         optional(seq(":", field("type", $.identifier))),
-        optional("*"),
+        optional(seq("*", optional($.range_literal))),
         optional(field("properties", $.map_literal)),
         optional($._weight_clause),
         "]",
         choice("-", "->", "-"),
+      ),
+
+    range_literal: ($) =>
+      choice(
+        $.integer_literal,
+        seq($.integer_literal, "..", optional($.integer_literal)),
+        seq("..", $.integer_literal)
       ),
 
     hyper_edge_pattern: ($) => $.edge_pattern,
@@ -424,6 +445,7 @@ module.exports = grammar({
         $.variable,
         $._literal,
         $.function_call,
+        $.list_predicate,
         $.property_access,
         $.binary_expression,
         $.unary_expression,
@@ -432,6 +454,17 @@ module.exports = grammar({
         $.subquery_expression,
         $.window_function,
         seq("(", $._expression, ")"),
+      ),
+
+    list_predicate: ($) =>
+      seq(
+        choice("ALL", "ANY", "NONE", "SINGLE"),
+        "(",
+        field("variable", $.identifier),
+        "IN",
+        field("list", $._expression),
+        optional(seq("WHERE", field("condition", $._expression))),
+        ")"
       ),
 
     binary_expression: ($) =>

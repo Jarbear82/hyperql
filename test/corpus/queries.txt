@@ -330,5 +330,72 @@ BEGIN ISOLATION LEVEL SERIALIZABLE ON ERROR CONTINUE;
 ---
 
 (source_file
-  (begin_transaction
+  (transaction_statement
     (isolation_level)))
+
+==================
+Commit and Rollback
+==================
+COMMIT;
+ROLLBACK;
+SET ISOLATION LEVEL READ COMMITTED;
+---
+
+(source_file
+  (transaction_statement)
+  (transaction_statement)
+  (transaction_statement
+    (isolation_level)))
+
+==================
+Merge Object
+==================
+MERGE OBJECT u WITH { name: "New Name" };
+---
+
+(source_file
+  (manipulation_statement
+    (merge_object_clause
+      (identifier)
+      (map_literal
+        (identifier)
+        (string_literal)))))
+
+==================
+Range Literal in Match
+==================
+MATCH (a)-[:Friend*1..5]->(b);
+---
+
+(source_file
+  (manipulation_statement
+    (match_clause
+      (pattern
+        (path_pattern
+          (node_pattern
+            (identifier))
+          (edge_pattern
+            (identifier)
+            (range_literal
+              (integer_literal)
+              (integer_literal)))
+          (node_pattern
+            (identifier)))))))
+
+==================
+List Predicates
+==================
+RETURN ALL(n IN nodes WHERE n.age > 18);
+---
+
+(source_file
+  (manipulation_statement
+    (return_clause
+      (list_predicate
+        (identifier)
+        (identifier)
+        (binary_expression
+          (property_access
+            (identifier)
+            (identifier))
+          (integer_literal))))))
