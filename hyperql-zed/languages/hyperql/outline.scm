@@ -18,3 +18,9 @@
 
 (define_trait
   name: (identifier) @name) @item
+
+(define_role 
+  name: (identifier) @name) @item
+
+(define_index 
+  name: (identifier) @name) @item

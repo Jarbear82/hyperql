@@ -1,4 +1,5 @@
-;;; --- KEYWORDS & SYNTAX ---
+;;; --- KEYWORDS & CLAUSES ---
+
 [
   "DEFINE"
   "NAMESPACE"
@@ -69,7 +70,28 @@
   "CROSS_TYPE"
   "PATH"
   "OBJECT"
+  "EXISTS"
+  "IN"
+  "IS"
 ] @keyword
+
+(list_predicate 
+  [
+    "ALL" 
+    "ANY" 
+    "NONE" 
+    "SINGLE"
+  ] @keyword)
+
+(binary_expression 
+  [
+    "IS NULL" 
+    "IS NOT NULL" 
+    "LIKE" 
+    "ILIKE" 
+    "MATCHES" 
+    "IMATCHES"
+  ] @keyword)
 
 ; Complex Phrases
 [
@@ -88,17 +110,41 @@
   "PARTITION"
 ] @keyword
 
-;;; --- DEFINITIONS (Distinct from Usage) ---
 
-; 1. Field Definitions (e.g. DEFINE FIELD name)
-(define_field 
-  name: (identifier) @function)
+;;; --- OPERATORS ---
 
-; 2. Role Definitions (e.g. DEFINE ROLE name)
-(define_role 
-  name: (identifier) @type.builtin)
+[
+  "->"
+  "<-"
+  "+="
+  "-="
+  "=="
+  "!="
+  ">="
+  "<="
+  "&&"
+  "||"
+  "!"
+  "="
+  "+"
+  "-"
+  "*"
+  "/"
+  "%"
+  "<"
+  ">"
+] @operator
 
-; 3. Structure Definitions (Nodes, Edges, Structs)
+(node_pattern ":" @punctuation.delimiter)
+(edge_pattern ":" @punctuation.delimiter)
+(property_assignment ":" @punctuation.delimiter)
+(property_access "." @punctuation.delimiter)
+(edge_pattern "*" @operator)
+
+
+;;; --- TYPES & DEFINITIONS ---
+
+; 1. Schema Definitions
 (define_node name: (identifier) @type.definition)
 (define_edge name: (identifier) @type.definition)
 (define_struct name: (identifier) @type.definition)
@@ -106,53 +152,71 @@
 (define_enum name: (identifier) @type.definition)
 (define_namespace name: (namespace_identifier) @namespace)
 
-;;; --- TYPES ---
+; 2. Field & Role Definitions
+(define_field name: (identifier) @function)
+(define_role name: (identifier) @variable.special)
+(role_definition name: (identifier) @variable.special)
+(role_definition role_type: (identifier) @type)
+(role_definition cardinality: _ @constant)
+(role_definition direction: _ @operator)
 
-; Built-in types
+; 3. Type Identifiers
 [
   "String" "Int" "Int32" "Float" "Bool" "Date" 
   "UUID" "Interval" "Time" "Decimal" "Path" 
   "Vector" "List" "Enum" "Struct"
 ] @type.builtin
 
-; Type identifiers in clauses
 (create_node_clause type: (identifier) @type)
 (create_edge_clause type: (identifier) @type)
 (node_pattern type: (identifier) @type)
 (edge_pattern type: (identifier) @type)
 (define_field type: (_) @type)
 
+
 ;;; --- VARIABLES & PROPERTIES ---
 
-; 1. Fields (Usage) - Standard Property Color
-(property_assignment (identifier) @property)
-(property_access property: (identifier) @property)
-
-; 2. Roles (Usage) - Distinct "Special" Color
-(role_assignment (identifier) @variable.special)
-(role_definition name: (identifier) @variable.special)
-
-; 3. Standard Variables
 (variable) @variable
 (identifier) @variable
 
-;;; --- SPECIAL FEATURES ---
+; Fields (Usage)
+(property_assignment (identifier) @property)
+(property_access property: (identifier) @property)
 
-; Decorators (e.g. @unique)
-(decorator) @attribute
+; Roles (Usage)
+(role_assignment (identifier) @variable.special)
 
-; Cardinality (e.g. (ONE), (MANY))
-(role_definition cardinality: _ @constant)
 
-; Functions
+;;; --- FUNCTIONS & DECORATORS ---
+
+; Generic
 (function_call name: (identifier) @function.method)
+(decorator (identifier) @attribute)
+
+; Built-in Functions (Overrides generic)
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(COUNT|SUM|AVG|MIN|MAX|COLLECT|STRING_AGG)$"))
+
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(ROW_NUMBER|RANK|DENSE_RANK|NTILE|LAG|LEAD|FIRST_VALUE|LAST_VALUE)$"))
+
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(UPPER|LOWER|LEN|TRIM|SUBSTR|CONCAT|CONTAINS|STARTS_WITH|ENDS_WITH|NOW|ROUND)$"))
+
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(SHORTEST_PATH|PAGERANK|BETWEENNESS_CENTRALITY|LOUVAIN|CONNECTED_COMPONENTS)$"))
+
+; Built-in Decorators (Overrides generic)
+(decorator (identifier) @attribute.builtin
+  (#match? @attribute.builtin "^(computed|materialized|volatile|display|unique|required|readonly|optional|ordered|unordered|index|length)$"))
+
 
 ;;; --- LITERALS ---
+
 (string_literal) @string
 (integer_literal) @number
 (float_literal) @number
 (boolean_literal) @boolean
 (null_literal) @constant
 
-; Comments
 (comment) @comment

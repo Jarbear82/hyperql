@@ -132,6 +132,7 @@ module.exports = grammar({
       seq(
         field("name", $.identifier),
         ":",
+        optional(field("direction", choice("<-", "->"))),
         field("role_type", $.identifier),
         field("cardinality", choice("(ONE)", "(MANY)")),
         repeat($.decorator),

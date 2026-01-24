@@ -9,4 +9,7 @@
   (merge_clause)
   (transaction_statement)
   (list_predicate)
+  (where_clause)
+  (with_clause)
+  (return_clause)
 ] @indent
