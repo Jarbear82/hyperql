@@ -12,7 +12,8 @@ RETURN n
         (path_pattern
           (node_pattern
             (identifier)
-            (identifier)))))
+            (dotted_identifier
+              (identifier))))))
     (return_clause
       (identifier))))
 
@@ -53,7 +54,8 @@ CREATE NODE u:User { name: "Alice", age: 30 };
   (manipulation_statement
     (create_node_clause
       (identifier)
-      (identifier)
+      (dotted_identifier
+        (identifier))
       (map_literal
         (identifier)
         (string_literal)
@@ -74,7 +76,8 @@ CREATE EDGE e:Follows {
   (manipulation_statement
     (create_edge_clause
       (identifier)
-      (identifier)
+      (dotted_identifier
+        (identifier))
       (property_assignment
         (identifier)
         (string_literal))
@@ -97,7 +100,8 @@ ON MATCH SET e.Updated = true
   (manipulation_statement
     (merge_clause
       (identifier)
-      (identifier)
+      (dotted_identifier
+        (identifier))
       (property_assignment
         (identifier)
         (integer_literal))
@@ -136,7 +140,8 @@ SET c.passengers -= (old_passenger)
         (path_pattern
           (node_pattern
             (identifier)
-            (identifier)))))
+            (dotted_identifier
+              (identifier))))))
     (set_clause
       (atomic_append
         (property_access
@@ -166,7 +171,8 @@ RETURN p
           (node_pattern
             (identifier))
           (edge_pattern
-            (identifier)
+            (dotted_identifier
+              (identifier))
             (identifier))
           (node_pattern
             (identifier)))))
@@ -191,7 +197,8 @@ RETURN p.Name
         (path_pattern
           (node_pattern
             (identifier)
-            (identifier)))))
+            (dotted_identifier
+              (identifier))))))
     (where_clause
       (subquery_expression
         (manipulation_statement
@@ -200,7 +207,8 @@ RETURN p.Name
               (path_pattern
                 (node_pattern
                   (identifier)
-                  (identifier)
+                  (dotted_identifier
+                    (identifier))
                   (map_literal
                     (identifier)
                     (identifier))))))
@@ -232,7 +240,8 @@ RETURN
         (path_pattern
           (node_pattern
             (identifier)
-            (identifier)))))
+            (dotted_identifier
+              (identifier))))))
     (return_clause
       (property_access
         (identifier)
@@ -275,7 +284,8 @@ LIMIT 10
         (path_pattern
           (node_pattern
             (identifier)
-            (identifier)))))
+            (dotted_identifier
+              (identifier))))))
     (where_clause
       (binary_expression
         (function_call
@@ -313,11 +323,13 @@ BATCH {
     (manipulation_statement
       (create_node_clause
         (identifier)
-        (identifier)
+        (dotted_identifier
+          (identifier))
         (map_literal))
       (create_node_clause
         (identifier)
-        (identifier)
+        (dotted_identifier
+          (identifier))
         (map_literal)))
     (return_clause
       (identifier)
@@ -375,7 +387,8 @@ MATCH (a)-[:Friend*1..5]->(b);
           (node_pattern
             (identifier))
           (edge_pattern
-            (identifier)
+            (dotted_identifier
+              (identifier))
             (range_literal
               (integer_literal)
               (integer_literal)))

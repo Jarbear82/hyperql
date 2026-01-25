@@ -1,6 +1,6 @@
 // ==========================================
 // 1. Schema Definitions (DDL)
-// ========================================== 
+// ==========================================
 
 DEFINE NAMESPACE Core.Game STRICT_MODE = true;
 
@@ -78,27 +78,27 @@ DEFINE NODE Quest EXTENDS [Entity] {
 DEFINE EDGE Membership {
     joined_at,
     rank,
-    member: member_role (ONE),
-    guild: guild_role (ONE)
+    member: <- member_role (ONE),
+    guild: -> guild_role (ONE)
 }
 
 DEFINE EDGE Friendship {
     created_at,
-    friend_a: friend_role (ONE),
-    friend_b: friend_role (ONE)
+    friend_a: <- friend_role (ONE),
+    friend_b: -> friend_role (ONE)
 }
 
 DEFINE EDGE ActiveQuest {
     started_at,
-    player: quester (ONE),
-    quest: quest_ref (ONE)
+    player: <- quester (ONE),
+    quest: -> quest_ref (ONE)
 }
 
 DEFINE INDEX idx_player_score ON Player(score);
 
-// ========================================== 
+// ==========================================
 // 2. Migration & System
-// ========================================== 
+// ==========================================
 
 VALIDATE MIGRATION v1_to_v2 TO v2 MAP {
     old_field: new_field,
@@ -118,9 +118,9 @@ BEGIN ISOLATION LEVEL SERIALIZABLE ON ERROR CONTINUE;
     // ... statements ...
 COMMIT;
 
-// ========================================== 
+// ==========================================
 // 3. Query / Manipulation (DML)
-// ========================================== 
+// ==========================================
 
 // Basic Match & Create
 MATCH (p:Player { username: "Hero123" })
@@ -159,9 +159,9 @@ MERGE (u:Player { id: UUID() })
 ON CREATE SET u.created_at = NOW()
 ON MATCH SET u.updated_at = NOW();
 
-// ========================================== 
+// ==========================================
 // 4. Built-in Functions & Windows
-// ========================================== 
+// ==========================================
 
 MATCH (e:Player)
 RETURN
@@ -172,15 +172,15 @@ RETURN
     UPPER(e.username),
     CONCAT("Player: ", e.username),
     // Window functions
-    RANK() OVER (ORDER BY e.score DESC) as rank_in_game;
+    RANK() OVER (ORDER BY e.score DESC) AS rank_in_game;
 
 // Graph Algorithms (Functional Syntax in 0.15)
 MATCH (start:Player), (end:Player)
 RETURN SHORTEST_PATH(start, end, Friendship) AS path;
 
-// ========================================== 
+// ==========================================
 // 5. Advanced Logic & Operators
-// ========================================== 
+// ==========================================
 
 MATCH (n:Player)
 WHERE n.score >= 18
@@ -205,12 +205,3 @@ BATCH {
     CREATE NODE a:Player { score: 1 };
     CREATE NODE b:Player { score: 2 };
 } RETURN a, b;
-
-// ========================================== 
-// 6. Directed Edge Definitions (v0.15)
-// ========================================== 
-
-DEFINE EDGE Commute {
-    driver: <- Driver (ONE),       // Source role
-    passengers: -> Person (MANY)   // Target role
-}
