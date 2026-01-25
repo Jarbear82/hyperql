@@ -167,10 +167,10 @@
   "Vector" "List" "Enum" "Struct"
 ] @type.builtin
 
-(create_node_clause type: (_) @type)
-(create_edge_clause type: (_) @type)
-(node_pattern type: (_) @type)
-(edge_pattern type: (_) @type)
+(create_node_clause type: (dotted_identifier) @type)
+(create_edge_clause type: (dotted_identifier) @type)
+(node_pattern type: (dotted_identifier) @type)
+(edge_pattern type: (dotted_identifier) @type)
 (define_field type: (_) @type)
 
 
