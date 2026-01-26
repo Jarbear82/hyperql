@@ -192,7 +192,7 @@
 (define_index name: (identifier) @type.definition)
 
 ; Enum values
-(define_enum value: (identifier) @constant.builtin)
+(define_enum (identifier) @constant.builtin)
 
 ; Struct field names
 (define_struct field: (identifier) @variable.member)
@@ -205,7 +205,7 @@
 (define_role name: (identifier) @variable.special)
 (role_definition name: (identifier) @variable.special)
 (role_definition role_type: (identifier) @type)
-(role_definition cardinality: _ @constant.builtin)
+(role_definition ["(ONE)" "(MANY)"] @constant.builtin)
 (role_definition direction: _ @operator)
 
 ; 3. Type Identifiers
@@ -236,7 +236,13 @@
 
 ; Field type declarations - highlight the type
 (define_field type: (dotted_identifier) @type)
-(define_field type: (identifier) @type.builtin)
+
+; If the type is a simple builtin string (like "String")
+(define_field type: (_) @type.builtin
+  (#match? @type.builtin "^(String|Int|Int32|Float|Bool|Date|UUID|Interval|Time|Decimal|Path|Vector|List|Enum|Struct)$"))
+
+; If the type is a custom identifier/dotted identifier
+(define_field type: (dotted_identifier) @type)
 
 ; Index type reference
 (define_index type: (identifier) @type)
