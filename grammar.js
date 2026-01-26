@@ -86,7 +86,7 @@ module.exports = grammar({
         "STRUCT",
         field("name", $.identifier),
         "{",
-        commaSep($.identifier),
+        commaSep(field("field", $.identifier)), // Added field label here
         "}",
         optional(";"),
       ),
@@ -97,7 +97,7 @@ module.exports = grammar({
         "TRAIT",
         field("name", $.identifier),
         "{",
-        commaSep($.identifier),
+        commaSep(field("field", $.identifier)), // Added field label here
         "}",
         optional(";"),
       ),
