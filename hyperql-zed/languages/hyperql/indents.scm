@@ -7,6 +7,7 @@
   (alter)
   (map_clause)
   (defaults_clause)
+  (constraint_block)
 ] @indent
 
 ; Indent definition bodies
@@ -16,6 +17,7 @@
   (define_enum)
   (define_struct)
   (define_trait)
+  (define_role)
 ] @indent
 
 ; Indent clause bodies

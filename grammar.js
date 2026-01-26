@@ -76,6 +76,7 @@ module.exports = grammar({
         "[",
         commaSep($.identifier),
         "]",
+        optional($.constraint_block),
         ";",
       ),
 
@@ -109,6 +110,7 @@ module.exports = grammar({
         field("name", $.identifier),
         optional($.extends_clause),
         $.schema_body,
+        optional($.constraint_block),
         optional(";"),
       ),
 
@@ -120,6 +122,7 @@ module.exports = grammar({
         field("name", $.identifier),
         optional($.extends_clause),
         $.schema_body,
+        optional($.constraint_block),
         optional(";"),
       ),
 
@@ -137,6 +140,20 @@ module.exports = grammar({
         field("cardinality", choice("(ONE)", "(MANY)")),
         repeat($.decorator),
       ),
+
+    constraint_block: ($) =>
+      seq(
+        "{",
+        "constraints",
+        ":",
+        choice(
+          seq("[", commaSep($._expression), "]"),
+          seq("{", commaSep($.named_constraint), "}"),
+        ),
+        "}",
+      ),
+
+    named_constraint: ($) => seq($.identifier, ":", $._expression),
 
     define_index: ($) =>
       seq(
@@ -214,9 +231,9 @@ module.exports = grammar({
             seq("EDGE", "TYPES"),
             "FIELDS",
             "ROLES",
-            "SCHEMA"
+            "SCHEMA",
           ),
-          ";"
+          ";",
         ),
         seq("EXPLAIN", optional($._expression), ";"),
         seq("ANALYZE", optional($._expression), ";"),
@@ -332,7 +349,7 @@ module.exports = grammar({
         ":",
         field("type", $.dotted_identifier),
         "{",
-        commaSep(choice($.property_assignment, $.role_assignment)),
+        commaSep(choice($.property_assignment, $.role_binding)),
         "}",
         ";",
       ),
@@ -345,7 +362,7 @@ module.exports = grammar({
         ":",
         field("type", $.dotted_identifier),
         "{",
-        commaSep(choice($.property_assignment, $.role_assignment)),
+        commaSep(choice($.property_assignment, $.role_binding)),
         "}",
         ")",
         repeat($.on_action),
@@ -506,9 +523,9 @@ module.exports = grammar({
 
     property_assignment: ($) => seq($.identifier, ":", $._expression),
 
-    role_assignment: ($) => seq($.identifier, "->", $._expression),
-
     assignment_expression: ($) => seq($.property_access, "=", $._expression),
+
+    role_binding: ($) => seq($.identifier, "=>", $._expression),
 
     atomic_append: ($) => seq($.property_access, "+=", $._expression),
     atomic_remove: ($) => seq($.property_access, "-=", $._expression),

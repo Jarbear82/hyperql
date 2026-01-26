@@ -183,8 +183,8 @@
 (property_assignment (identifier) @property)
 (property_access property: (identifier) @property)
 
-; Roles (Usage)
-(role_assignment (identifier) @variable.special)
+; Role Bindings (Instance Creation)
+(role_binding (identifier) @variable.special)
 
 
 ;;; --- FUNCTIONS & DECORATORS ---

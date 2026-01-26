@@ -474,6 +474,93 @@
     }
   },
   {
+    "type": "constraint_block",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": false,
+      "types": [
+        {
+          "type": "binary_expression",
+          "named": true
+        },
+        {
+          "type": "boolean_literal",
+          "named": true
+        },
+        {
+          "type": "case_expression",
+          "named": true
+        },
+        {
+          "type": "float_literal",
+          "named": true
+        },
+        {
+          "type": "function_call",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "integer_literal",
+          "named": true
+        },
+        {
+          "type": "list_literal",
+          "named": true
+        },
+        {
+          "type": "list_predicate",
+          "named": true
+        },
+        {
+          "type": "map_literal",
+          "named": true
+        },
+        {
+          "type": "match_expression",
+          "named": true
+        },
+        {
+          "type": "named_constraint",
+          "named": true
+        },
+        {
+          "type": "null_literal",
+          "named": true
+        },
+        {
+          "type": "property_access",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        },
+        {
+          "type": "subquery_expression",
+          "named": true
+        },
+        {
+          "type": "unary_expression",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        },
+        {
+          "type": "window_function",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "create_edge_clause",
     "named": true,
     "fields": {
@@ -507,7 +594,7 @@
           "named": true
         },
         {
-          "type": "role_assignment",
+          "type": "role_binding",
           "named": true
         }
       ]
@@ -694,6 +781,10 @@
       "multiple": true,
       "required": true,
       "types": [
+        {
+          "type": "constraint_block",
+          "named": true
+        },
         {
           "type": "extends_clause",
           "named": true
@@ -933,6 +1024,10 @@
       "required": true,
       "types": [
         {
+          "type": "constraint_block",
+          "named": true
+        },
+        {
           "type": "extends_clause",
           "named": true
         },
@@ -962,6 +1057,10 @@
       "multiple": true,
       "required": false,
       "types": [
+        {
+          "type": "constraint_block",
+          "named": true
+        },
         {
           "type": "identifier",
           "named": true
@@ -2113,7 +2212,7 @@
           "named": true
         },
         {
-          "type": "role_assignment",
+          "type": "role_binding",
           "named": true
         }
       ]
@@ -2262,6 +2361,89 @@
         },
         {
           "type": "validate_migration",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
+    "type": "named_constraint",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "binary_expression",
+          "named": true
+        },
+        {
+          "type": "boolean_literal",
+          "named": true
+        },
+        {
+          "type": "case_expression",
+          "named": true
+        },
+        {
+          "type": "float_literal",
+          "named": true
+        },
+        {
+          "type": "function_call",
+          "named": true
+        },
+        {
+          "type": "identifier",
+          "named": true
+        },
+        {
+          "type": "integer_literal",
+          "named": true
+        },
+        {
+          "type": "list_literal",
+          "named": true
+        },
+        {
+          "type": "list_predicate",
+          "named": true
+        },
+        {
+          "type": "map_literal",
+          "named": true
+        },
+        {
+          "type": "match_expression",
+          "named": true
+        },
+        {
+          "type": "null_literal",
+          "named": true
+        },
+        {
+          "type": "property_access",
+          "named": true
+        },
+        {
+          "type": "string_literal",
+          "named": true
+        },
+        {
+          "type": "subquery_expression",
+          "named": true
+        },
+        {
+          "type": "unary_expression",
+          "named": true
+        },
+        {
+          "type": "variable",
+          "named": true
+        },
+        {
+          "type": "window_function",
           "named": true
         }
       ]
@@ -2673,7 +2855,7 @@
     }
   },
   {
-    "type": "role_assignment",
+    "type": "role_binding",
     "named": true,
     "fields": {},
     "children": {
@@ -4193,6 +4375,10 @@
     "type": "comment",
     "named": true,
     "extra": true
+  },
+  {
+    "type": "constraints",
+    "named": false
   },
   {
     "type": "escape_sequence",

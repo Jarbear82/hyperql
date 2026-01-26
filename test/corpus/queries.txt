@@ -67,8 +67,8 @@ Create Edge
 ==================
 CREATE EDGE e:Follows {
     created_at: "2023-01-01",
-    from -> u,
-    to -> v
+    from => u,
+    to => v
 };
 ---
 
@@ -81,17 +81,17 @@ CREATE EDGE e:Follows {
       (property_assignment
         (identifier)
         (string_literal))
-      (role_assignment
+      (role_binding
         (identifier)
         (identifier))
-      (role_assignment
+      (role_binding
         (identifier)
         (identifier)))))
 
 ==================
 Merge with Roles
 ==================
-MERGE (e:Enrollment { since: 2020, student -> s, course -> c })
+MERGE (e:Enrollment { since: 2020, student => s, course => c })
 ON CREATE SET e.Date = NOW()
 ON MATCH SET e.Updated = true
 ---
@@ -105,10 +105,10 @@ ON MATCH SET e.Updated = true
       (property_assignment
         (identifier)
         (integer_literal))
-      (role_assignment
+      (role_binding
         (identifier)
         (identifier))
-      (role_assignment
+      (role_binding
         (identifier)
         (identifier))
       (on_action

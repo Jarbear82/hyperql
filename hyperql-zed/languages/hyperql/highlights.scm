@@ -121,12 +121,16 @@
 (system_statement "ROLES" @keyword)
 (system_statement "SCHEMA" @keyword)
 
+; Constraint keyword
+(constraint_block "constraints" @keyword.special)
+
 
 ;;; --- OPERATORS ---
 
 [
   "->"
   "<-"
+  "=>"
   "+="
   "-="
   "=="
@@ -156,7 +160,7 @@
 (node_pattern ":" @punctuation.delimiter)
 (edge_pattern ":" @punctuation.delimiter)
 (property_assignment ":" @punctuation.delimiter)
-(role_assignment "->" @punctuation.delimiter)
+(role_binding "=>" @operator.special)
 (property_access "." @punctuation.delimiter)
 (edge_pattern "*" @operator)
 (range_literal ".." @operator)
@@ -244,8 +248,11 @@
 (property_access property: (identifier) @property)
 (property_access object: (identifier) @variable)
 
-; Roles (Usage)
-(role_assignment (identifier) @variable.special)
+; Role Bindings (Instance Creation)
+(role_binding (identifier) @variable.special)
+
+; Named Constraints
+(named_constraint (identifier) @property)
 
 
 ;;; --- FUNCTIONS & DECORATORS ---
@@ -264,15 +271,39 @@
 
 ; Built-in String/Utility Functions
 (function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(UPPER|LOWER|LEN|LENGTH|TRIM|SUBSTR|SUBSTRING|CONCAT|CONTAINS|STARTS_WITH|ENDS_WITH|NOW|ROUND|COALESCE|IF)$"))
+  (#match? @function.builtin "^(UPPER|LOWER|LEN|LENGTH|TRIM|SUBSTR|SUBSTRING|CONCAT|CONTAINS|STARTS_WITH|ENDS_WITH|NOW|ROUND|COALESCE|NULLIF|IF|UUID|LIST_INDEX|LIST_SLICE)$"))
 
 ; Built-in Type Conversion Functions
 (function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(TO_STRING|TO_INT|TO_FLOAT|TO_BOOL|TO_DATE)$"))
+  (#match? @function.builtin "^(TO_STRING|TO_INT|TO_FLOAT|TO_BOOL|TO_DATE|TO_DECIMAL)$"))
 
-; Built-in Graph Algorithms
+; Built-in Math Functions
 (function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(SHORTEST_PATH|PAGERANK|BETWEENNESS_CENTRALITY|LOUVAIN|CONNECTED_COMPONENTS|JACCARD_SIMILARITY)$"))
+  (#match? @function.builtin "^(ABS|FLOOR|CEIL)$"))
+
+; Built-in Date Functions
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(YEAR|MONTH|DAY|DATE|TIME|INTERVAL)$"))
+
+; Built-in Graph Algorithms - Pathfinding
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(SHORTEST_PATH|ALL_SHORTEST_PATHS|K_SHORTEST_PATHS)$"))
+
+; Built-in Graph Algorithms - Centrality
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(PAGERANK|BETWEENNESS_CENTRALITY|DEGREE_CENTRALITY)$"))
+
+; Built-in Graph Algorithms - Community Detection
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(CONNECTED_COMPONENTS|LOUVAIN)$"))
+
+; Built-in Graph Algorithms - Pattern Matching
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(TRIANGLE_COUNT|FIND_CYCLES)$"))
+
+; Built-in Graph Algorithms - Similarity
+(function_call name: (identifier) @function.builtin
+  (#match? @function.builtin "^(JACCARD_SIMILARITY|COSINE_SIMILARITY|VECTOR_SIMILARITY)$"))
 
 ; Built-in Decorators
 (decorator (identifier) @attribute.builtin
@@ -296,12 +327,8 @@
 
 ;;; --- CLAUSES & PROJECTIONS ---
 
-
-
 ; Import
 (import_clause (string_literal) @string.special.path)
-
-
 
 ; Index hint
 (use_index_hint (identifier) @variable.special)
