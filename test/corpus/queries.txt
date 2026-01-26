@@ -2,7 +2,7 @@
 Basic Match
 ==================
 MATCH (n:Person)
-RETURN n
+RETURN n;
 ---
 
 (source_file
@@ -22,7 +22,7 @@ Cross-Type Global Search
 ==================
 MATCH (n) CROSS_TYPE
 WHERE n.LastName = "Smith"
-RETURN n, TYPE(n)
+RETURN n, TYPE(n);
 ---
 
 (source_file
@@ -57,10 +57,12 @@ CREATE NODE u:User { name: "Alice", age: 30 };
       (dotted_identifier
         (identifier))
       (map_literal
-        (identifier)
-        (string_literal)
-        (identifier)
-        (integer_literal)))))
+        (property_assignment
+          (identifier)
+          (string_literal))
+        (property_assignment
+          (identifier)
+          (integer_literal))))))
 
 ==================
 Create Edge
@@ -93,7 +95,7 @@ Merge with Roles
 ==================
 MERGE (e:Enrollment { since: 2020, student => s, course => c })
 ON CREATE SET e.Date = NOW()
-ON MATCH SET e.Updated = true
+ON MATCH SET e.Updated = true;
 ---
 
 (source_file
@@ -130,7 +132,7 @@ Atomic Set Arithmetic
 ==================
 MATCH (c:Commute)
 SET c.passengers += (new_passenger)
-SET c.passengers -= (old_passenger)
+SET c.passengers -= (old_passenger);
 ---
 
 (source_file
@@ -159,7 +161,7 @@ SET c.passengers -= (old_passenger)
 Match Path with Weight By (Algorithms)
 ==================
 MATCH PATH p = (a)-[:Link* WEIGHT BY latency USING MAX]->(b)
-RETURN p
+RETURN p;
 ---
 
 (source_file
@@ -187,7 +189,7 @@ WHERE EXISTS (
   MATCH (c:Commute {driver: (p)})
   WHERE c.Date > "2025-01-01"
 )
-RETURN p.Name
+RETURN p.Name;
 ---
 
 (source_file
@@ -209,9 +211,9 @@ RETURN p.Name
                   (identifier)
                   (dotted_identifier
                     (identifier))
-                  (map_literal
-                    (identifier)
-                    (identifier))))))
+                  (property_assignment
+                      (identifier)
+                      (identifier))))))
           (where_clause
             (binary_expression
               (property_access
@@ -230,7 +232,7 @@ MATCH (s:Sale)
 RETURN
   s.Date,
   SUM(s.Amount) OVER (ORDER BY s.Date) AS running_total,
-  RANK() OVER (PARTITION BY s.Product ORDER BY s.Amount DESC) AS product_rank
+  RANK() OVER (PARTITION BY s.Product ORDER BY s.Amount DESC) AS product_rank;
 ---
 
 (source_file
@@ -274,7 +276,7 @@ MATCH (p:Person)
 WHERE VECTOR_SIMILARITY(p.Embedding, $query_embedding) > 0.8
 RETURN p
 ORDER BY VECTOR_SIMILARITY(p.Embedding, $query_embedding) DESC
-LIMIT 10
+LIMIT 10;
 ---
 
 (source_file
@@ -325,7 +327,8 @@ BATCH {
         (identifier)
         (dotted_identifier
           (identifier))
-        (map_literal))
+        (map_literal)))
+    (manipulation_statement
       (create_node_clause
         (identifier)
         (dotted_identifier
@@ -370,8 +373,9 @@ MERGE OBJECT u WITH { name: "New Name" };
     (merge_object_clause
       (identifier)
       (map_literal
-        (identifier)
-        (string_literal)))))
+        (property_assignment
+          (identifier)
+          (string_literal))))))
 
 ==================
 Range Literal in Match

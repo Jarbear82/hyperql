@@ -24,8 +24,7 @@ DEFINE FIELD created_at: Date @readonly;
 DEFINE FIELD updated_at: Date;
 DEFINE FIELD created_by: UUID;
 DEFINE FIELD updated_by: UUID;
-
-DEFINE FIELD tags: List<String> @optional;
+DEFINE FIELD tags: List<String>; // @optional removed (use optional syntax on usage if needed)
 DEFINE FIELD metadata: String; // Map not supported in 0.16; use JSON String or Struct
 DEFINE FIELD position: Vector3;
 
@@ -110,13 +109,12 @@ DEFINE NODE Quest EXTENDS [Entity] {
 };
 
 // 1.6 Edges with Constraints
-// NOTE: In 0.16, schema arrows (<- ->) define directionality in DEFINE EDGE
-// But instance creation uses => for role binding
+// NOTE: In 0.16, grammar requires: Name : Direction Type (Cardinality)
 DEFINE EDGE Membership {
     joined_at,
     rank,
-    member: <- (ONE),
-    guild: -> (ONE)
+    member: <- member_role (ONE),
+    guild: -> guild_role (ONE)
 } {
     constraints: {
         valid_join_date: joined_at <= NOW(),
@@ -126,8 +124,8 @@ DEFINE EDGE Membership {
 
 DEFINE EDGE Friendship {
     created_at,
-    friend_a: <- (ONE),
-    friend_b: -> (ONE)
+    friend_a: <- friend_role (ONE),
+    friend_b: -> friend_role (ONE)
 } {
     constraints: {
         different_people: friend_a != friend_b,
@@ -137,8 +135,8 @@ DEFINE EDGE Friendship {
 
 DEFINE EDGE ActiveQuest {
     started_at,
-    player: <- (ONE),
-    quest: -> (ONE)
+    player: <- quester (ONE),
+    quest: -> quest_ref (ONE)
 } {
     constraints: [
         started_at <= NOW()
@@ -166,7 +164,8 @@ MATCH (n:Player) RETURN n;
 
 // Transactions
 BEGIN ISOLATION LEVEL SERIALIZABLE ON ERROR CONTINUE;
-    // ... statements ...
+
+// ... statements ...
 COMMIT;
 
 // ==========================================
@@ -208,7 +207,8 @@ RETURN p;
 MATCH (p:Player)
 SET p.tags += ["winner"],   // 0.16 Atomic append operator
     p.score = p.score + 100,
-    p.metadata = "{ \"level\": 50, \"title\": null }"; // JSON String for metadata
+    p.metadata = "{ \"level\": 50, \"title\": null }";
+// JSON String for metadata
 
 // Atomic remove
 MATCH (p:Player)
@@ -395,8 +395,8 @@ DEFINE ROLE adult_member ALLOWS [ValidatedPlayer] {
 
 // Edge-level: Validates relationships between role-bound nodes
 DEFINE EDGE AdultMembership {
-    member: <- (ONE),
-    organization: -> (ONE),
+    member: <- adult_member (ONE),
+    organization: -> guild_role (ONE),
     joined_date: Date
 } {
     constraints: {

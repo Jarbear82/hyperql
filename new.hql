@@ -1,4 +1,4 @@
-- ENUMS --
+-- ENUMS --
 DEFINE ENUM Gender {
     MALE,
     FEMALE

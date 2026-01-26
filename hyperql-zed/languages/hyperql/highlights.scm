@@ -73,11 +73,6 @@
   "EXISTS"
   "IN"
   "IS"
-  "AND"
-  "OR"
-  "NOT"
-  "OVER"
-  "PARTITION"
 ] @keyword
 
 (list_predicate
@@ -86,6 +81,12 @@
     "ANY"
     "NONE"
     "SINGLE"
+  ] @keyword)
+
+(postfix_expression
+  [
+    "IS NULL"
+    "IS NOT NULL"
   ] @keyword)
 
 ; Complex Phrases
@@ -97,32 +98,20 @@
   "READ_UNCOMMITTED"
   "READ_COMMITTED"
   "REPEATABLE_READ"
-] @keyword
-
-[
-  "IS NULL"
-  "IS NOT NULL"
   "ON ERROR CONTINUE"
 ] @keyword
 
-; Sorting
+; Sorting & Windows
 [
   "ASC"
   "DESC"
+  "OVER"
+  "PARTITION"
+  "ROWS"
+  "RANGE"
+  "BETWEEN"
+  "AND"
 ] @keyword
-
-; System Commands
-[
-  "NODE"
-  "EDGE"
-] @keyword.control
-(system_statement "TYPES" @keyword)
-(system_statement "FIELDS" @keyword)
-(system_statement "ROLES" @keyword)
-(system_statement "SCHEMA" @keyword)
-
-; Constraint keyword
-(constraint_block "constraints" @keyword.special)
 
 
 ;;; --- OPERATORS ---
@@ -130,7 +119,7 @@
 [
   "->"
   "<-"
-  "=>"
+  "<->"
   "+="
   "-="
   "=="
@@ -148,36 +137,17 @@
   "%"
   "<"
   ">"
-] @operator
-
-[
-  "LIKE"
-  "ILIKE"
-  "MATCHES"
-  "IMATCHES"
+  "??"
+  "?."
+  "=>"
 ] @operator
 
 (node_pattern ":" @punctuation.delimiter)
 (edge_pattern ":" @punctuation.delimiter)
-(property_assignment ":" @punctuation.delimiter)
-(role_binding "=>" @operator.special)
-(property_access "." @punctuation.delimiter)
+(property_assignment [":" "="] @punctuation.delimiter)
+(property_access ["." "?."] @punctuation.delimiter)
 (edge_pattern "*" @operator)
 (range_literal ".." @operator)
-
-[
-  "("
-  ")"
-  "["
-  "]"
-  "{"
-  "}"
-] @punctuation.bracket
-
-[
-  ","
-  ";"
-] @punctuation.delimiter
 
 
 ;;; --- TYPES & DEFINITIONS ---
@@ -191,21 +161,13 @@
 (define_namespace name: (namespace_identifier) @namespace)
 (define_index name: (identifier) @type.definition)
 
-; Enum values
-(define_enum (identifier) @constant.builtin)
-
-; Struct field names
-(define_struct field: (identifier) @variable.member)
-
-; Trait field names
-(define_trait field: (identifier) @variable.member)
-
 ; 2. Field & Role Definitions
 (define_field name: (identifier) @variable.member)
+(field_definition name: (identifier) @variable.member)
 (define_role name: (identifier) @variable.special)
 (role_definition name: (identifier) @variable.special)
 (role_definition role_type: (identifier) @type)
-(role_definition ["(ONE)" "(MANY)"] @constant.builtin)
+(role_definition cardinality: _ @constant.builtin)
 (role_definition direction: _ @operator)
 
 ; 3. Type Identifiers
@@ -219,32 +181,21 @@
   "UUID"
   "Interval"
   "Time"
-  "Decimal"
   "Path"
+  "Decimal"
   "Vector"
   "List"
   "Enum"
   "Struct"
 ] @type.builtin
 
-; Type usage in various contexts
 (create_node_clause type: (dotted_identifier) @type)
 (create_edge_clause type: (dotted_identifier) @type)
 (merge_clause type: (dotted_identifier) @type)
 (node_pattern type: (dotted_identifier) @type)
 (edge_pattern type: (dotted_identifier) @type)
-
-; Field type declarations - highlight the type
-(define_field type: (dotted_identifier) @type)
-
-; If the type is a simple builtin string (like "String")
-(define_field type: (_) @type.builtin
-  (#match? @type.builtin "^(String|Int|Int32|Float|Bool|Date|UUID|Interval|Time|Decimal|Path|Vector|List|Enum|Struct)$"))
-
-; If the type is a custom identifier/dotted identifier
-(define_field type: (dotted_identifier) @type)
-
-; Index type reference
+(define_field type: (_) @type)
+(field_definition type: (_) @type)
 (define_index type: (identifier) @type)
 
 
@@ -267,23 +218,18 @@
 ; Fields (Usage)
 (property_assignment (identifier) @property)
 (property_access property: (identifier) @property)
-(property_access object: (identifier) @variable)
+(named_constraint (identifier) @property)
 
 ; Role Bindings (Instance Creation)
 (role_binding (identifier) @variable.special)
 
-; Named Constraints
-(named_constraint (identifier) @property)
-
 
 ;;; --- FUNCTIONS & DECORATORS ---
-
-; Decorator @ symbol
-(decorator "@" @punctuation.special)
 
 ; Generic
 (function_call name: (identifier) @function.call)
 (decorator (identifier) @attribute)
+(decorator "@" @punctuation.special)
 
 ; Built-in Aggregate Functions
 (function_call name: (identifier) @function.builtin
@@ -309,25 +255,9 @@
 (function_call name: (identifier) @function.builtin
   (#match? @function.builtin "^(YEAR|MONTH|DAY|DATE|TIME|INTERVAL)$"))
 
-; Built-in Graph Algorithms - Pathfinding
+; Built-in Graph Algorithms
 (function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(SHORTEST_PATH|ALL_SHORTEST_PATHS|K_SHORTEST_PATHS)$"))
-
-; Built-in Graph Algorithms - Centrality
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(PAGERANK|BETWEENNESS_CENTRALITY|DEGREE_CENTRALITY)$"))
-
-; Built-in Graph Algorithms - Community Detection
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(CONNECTED_COMPONENTS|LOUVAIN)$"))
-
-; Built-in Graph Algorithms - Pattern Matching
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(TRIANGLE_COUNT|FIND_CYCLES)$"))
-
-; Built-in Graph Algorithms - Similarity
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(JACCARD_SIMILARITY|COSINE_SIMILARITY|VECTOR_SIMILARITY)$"))
+  (#match? @function.builtin "^(SHORTEST_PATH|ALL_SHORTEST_PATHS|K_SHORTEST_PATHS|PAGERANK|BETWEENNESS_CENTRALITY|DEGREE_CENTRALITY|CONNECTED_COMPONENTS|LOUVAIN|TRIANGLE_COUNT|FIND_CYCLES|JACCARD_SIMILARITY|COSINE_SIMILARITY|VECTOR_SIMILARITY)$"))
 
 ; Built-in Decorators
 (decorator (identifier) @attribute.builtin
@@ -339,29 +269,23 @@
 (string_literal) @string
 (escape_sequence) @string.escape
 (integer_literal) @number
+(decimal_literal) @number
 (float_literal) @number.float
 (boolean_literal) @boolean
 (null_literal) @constant.builtin
 
 (comment) @comment
 
-; Special wildcard in function calls
-(function_call "*" @operator)
-
-
-;;; --- CLAUSES & PROJECTIONS ---
-
-; Import
-(import_clause (string_literal) @string.special.path)
-
-; Index hint
-(use_index_hint (identifier) @variable.special)
-
-; Map entries
-(map_entry (identifier) @property)
-
-; Cardinality literals
 [
-  "(ONE)"
-  "(MANY)"
-] @constant.builtin
+  "("
+  ")"
+  "["
+  "]"
+  "{"
+  "}"
+] @punctuation.bracket
+
+[
+  ","
+  ";"
+] @punctuation.delimiter

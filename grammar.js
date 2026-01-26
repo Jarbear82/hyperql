@@ -9,13 +9,16 @@ module.exports = grammar({
     source_file: ($) => repeat($._statement),
 
     _statement: ($) =>
-      choice(
-        $.definition_statement,
-        $.manipulation_statement,
-        $.migration_statement,
-        $.system_statement,
-        $.batch_statement,
-        $.transaction_statement,
+      seq(
+        choice(
+          $.definition_statement,
+          $.manipulation_statement,
+          $.migration_statement,
+          $.system_statement,
+          $.batch_statement,
+          $.transaction_statement,
+        ),
+        ";",
       ),
 
     // ==========================================
@@ -41,7 +44,6 @@ module.exports = grammar({
         "NAMESPACE",
         field("name", $.namespace_identifier),
         optional(seq("STRICT_MODE", "=", $.boolean_literal)),
-        ";",
       ),
 
     define_enum: ($) =>
@@ -50,9 +52,8 @@ module.exports = grammar({
         "ENUM",
         field("name", $.identifier),
         "{",
-        commaSep(field("value", $.identifier)),
+        commaSepTrailing(field("value", $.identifier)),
         "}",
-        optional(";"),
       ),
 
     define_field: ($) =>
@@ -64,7 +65,6 @@ module.exports = grammar({
         field("type", $._data_type),
         optional("?"),
         repeat($.decorator),
-        ";",
       ),
 
     define_role: ($) =>
@@ -73,11 +73,8 @@ module.exports = grammar({
         "ROLE",
         field("name", $.identifier),
         "ALLOWS",
-        "[",
-        commaSep($.identifier),
-        "]",
+        choice(seq("[", commaSep1($.identifier), "]"), $.identifier),
         optional($.constraint_block),
-        ";",
       ),
 
     define_struct: ($) =>
@@ -86,9 +83,8 @@ module.exports = grammar({
         "STRUCT",
         field("name", $.identifier),
         "{",
-        commaSep(field("field", $.identifier)), // Added field label here
+        commaSepTrailing(field("field", $.identifier)),
         "}",
-        optional(";"),
       ),
 
     define_trait: ($) =>
@@ -97,9 +93,8 @@ module.exports = grammar({
         "TRAIT",
         field("name", $.identifier),
         "{",
-        commaSep(field("field", $.identifier)), // Added field label here
+        commaSepTrailing(field("field", $.identifier)),
         "}",
-        optional(";"),
       ),
 
     define_node: ($) =>
@@ -111,7 +106,6 @@ module.exports = grammar({
         optional($.extends_clause),
         $.schema_body,
         optional($.constraint_block),
-        optional(";"),
       ),
 
     define_edge: ($) =>
@@ -123,22 +117,44 @@ module.exports = grammar({
         optional($.extends_clause),
         $.schema_body,
         optional($.constraint_block),
-        optional(";"),
       ),
 
-    extends_clause: ($) => seq("EXTENDS", "[", commaSep($.identifier), "]"),
+    extends_clause: ($) => seq("EXTENDS", "[", commaSep1($.identifier), "]"),
 
     schema_body: ($) =>
-      seq("{", commaSep(choice($.role_definition, $.identifier)), "}"),
+      seq(
+        "{",
+        commaSepTrailing(choice($.role_definition, $.field_definition, $.identifier, $.comment)),
+        "}",
+      ),
 
-    role_definition: ($) =>
+    field_definition: ($) =>
       seq(
         field("name", $.identifier),
+        optional("?"),
         ":",
-        optional(field("direction", choice("<-", "->"))),
-        field("role_type", $.identifier),
-        field("cardinality", choice("(ONE)", "(MANY)")),
+        field("type", $._data_type),
         repeat($.decorator),
+      ),
+
+    role_definition: ($) =>
+      choice(
+        seq(
+          field("name", $.identifier),
+          optional("?"),
+          ":",
+          optional(field("direction", choice("<-", "->", "<->"))),
+          field("role_type", $.identifier),
+          field("cardinality", choice("(ONE)", "(MANY)")),
+          repeat($.decorator),
+        ),
+        seq(
+          field("name", $.identifier),
+          optional("?"),
+          field("direction", choice("<-", "->", "<->")),
+          field("cardinality", choice("(ONE)", "(MANY)")),
+          repeat($.decorator),
+        ),
       ),
 
     constraint_block: ($) =>
@@ -147,8 +163,8 @@ module.exports = grammar({
         "constraints",
         ":",
         choice(
-          seq("[", commaSep($._expression), "]"),
-          seq("{", commaSep($.named_constraint), "}"),
+          seq("[", commaSepTrailing($._expression), "]"),
+          seq("{", commaSepTrailing($.named_constraint), "}"),
         ),
         "}",
       ),
@@ -163,9 +179,8 @@ module.exports = grammar({
         "ON",
         field("type", $.identifier),
         "(",
-        commaSep($.identifier),
+        commaSep1($.identifier),
         ")",
-        ";",
       ),
 
     // ==========================================
@@ -202,25 +217,26 @@ module.exports = grammar({
         choice("NODE", "EDGE"),
         $.identifier,
         "{",
-        commaSep(
+        commaSepTrailing(
           choice(
             seq("ADD", $.identifier),
             seq("DROP", $.identifier),
             seq("RENAME", $.identifier, "TO", $.identifier),
+            seq("ADD", "CONSTRAINT", $.identifier, ":", $._expression),
           ),
         ),
         "}",
       ),
 
-    map_clause: ($) => seq("MAP", "{", commaSep($.map_entry), "}"),
+    map_clause: ($) => seq("MAP", "{", commaSepTrailing($.map_entry), "}"),
     map_entry: ($) =>
       choice(
         seq($.identifier, ":", $.identifier),
-        seq("DROP", "[", commaSep($.identifier), "]"),
+        seq("DROP", "[", commaSep1($.identifier), "]"),
       ),
 
     defaults_clause: ($) =>
-      seq("DEFAULTS", "{", commaSep(seq($.identifier, ":", $._literal)), "}"),
+      seq("DEFAULTS", "{", commaSepTrailing(seq($.identifier, ":", $._literal)), "}"),
 
     system_statement: ($) =>
       choice(
@@ -232,15 +248,18 @@ module.exports = grammar({
             "FIELDS",
             "ROLES",
             "SCHEMA",
+            seq("TRANSACTION", "LOG", "SIZE"),
           ),
-          ";",
         ),
-        seq("EXPLAIN", optional($._expression), ";"),
-        seq("ANALYZE", optional($._expression), ";"),
+        seq(
+          choice("EXPLAIN", "ANALYZE"),
+          optional(choice("VERBOSE", "JSON")),
+          optional($.manipulation_statement),
+        ),
       ),
 
     batch_statement: ($) =>
-      seq("BATCH", "{", repeat($._statement), "}", $.return_clause, ";"),
+      seq("BATCH", "{", repeat($._statement), "}", optional($.return_clause)),
 
     transaction_statement: ($) =>
       choice(
@@ -248,11 +267,10 @@ module.exports = grammar({
           "BEGIN",
           optional(seq("ISOLATION", "LEVEL", $.isolation_level)),
           optional("ON ERROR CONTINUE"),
-          ";",
         ),
-        seq("COMMIT", ";"),
-        seq("ROLLBACK", ";"),
-        seq("SET", "ISOLATION", "LEVEL", $.isolation_level, ";"),
+        "COMMIT",
+        "ROLLBACK",
+        seq("SET", "ISOLATION", "LEVEL", $.isolation_level),
       ),
 
     isolation_level: ($) =>
@@ -270,8 +288,7 @@ module.exports = grammar({
     // 3. Query / Manipulation (DML)
     // ==========================================
 
-    manipulation_statement: ($) =>
-      prec.right(seq(repeat1($._clause), optional(";"))),
+    manipulation_statement: ($) => repeat1($._clause),
 
     _clause: ($) =>
       choice(
@@ -338,7 +355,6 @@ module.exports = grammar({
         ":",
         field("type", $.dotted_identifier),
         $.map_literal,
-        ";",
       ),
 
     create_edge_clause: ($) =>
@@ -349,9 +365,8 @@ module.exports = grammar({
         ":",
         field("type", $.dotted_identifier),
         "{",
-        commaSep(choice($.property_assignment, $.role_binding)),
+        commaSepTrailing(choice($.property_assignment, $.role_binding)),
         "}",
-        ";",
       ),
 
     merge_clause: ($) =>
@@ -362,7 +377,7 @@ module.exports = grammar({
         ":",
         field("type", $.dotted_identifier),
         "{",
-        commaSep(choice($.property_assignment, $.role_binding)),
+        commaSepTrailing(choice($.property_assignment, $.role_binding)),
         "}",
         ")",
         repeat($.on_action),
@@ -380,11 +395,16 @@ module.exports = grammar({
       seq(
         "SET",
         commaSep1(
-          choice($.assignment_expression, $.atomic_append, $.atomic_remove),
+          choice(
+            $.assignment_expression,
+            $.atomic_append,
+            $.atomic_remove,
+            seq($.identifier, "+=", $.map_literal),
+          ),
         ),
       ),
 
-    remove_clause: ($) => seq("REMOVE", commaSep1($.identifier)),
+    remove_clause: ($) => seq("REMOVE", commaSep1($.property_access)),
 
     delete_clause: ($) => seq("DELETE", commaSep1($.identifier)),
     detach_delete_clause: ($) =>
@@ -431,7 +451,13 @@ module.exports = grammar({
         "(",
         optional(field("variable", $.identifier)),
         optional(seq(":", field("type", $.dotted_identifier))),
-        optional(field("properties", $.map_literal)),
+        optional(
+          seq(
+            "{",
+            commaSepTrailing(choice($.property_assignment, $.role_binding)),
+            "}",
+          ),
+        ),
         ")",
       ),
 
@@ -442,7 +468,13 @@ module.exports = grammar({
         optional(field("variable", $.identifier)),
         optional(seq(":", field("type", $.dotted_identifier))),
         optional(seq("*", optional($.range_literal))),
-        optional(field("properties", $.map_literal)),
+        optional(
+          seq(
+            "{",
+            commaSepTrailing(choice($.property_assignment, $.role_binding)),
+            "}",
+          ),
+        ),
         optional($._weight_clause),
         "]",
         choice("-", "->"),
@@ -455,8 +487,6 @@ module.exports = grammar({
         seq("..", $.integer_literal),
       ),
 
-    hyper_edge_pattern: ($) => $.edge_pattern,
-
     _expression: ($) =>
       choice(
         $.identifier,
@@ -467,6 +497,7 @@ module.exports = grammar({
         $.property_access,
         $.binary_expression,
         $.unary_expression,
+        $.postfix_expression,
         $.case_expression,
         $.match_expression,
         $.subquery_expression,
@@ -487,14 +518,15 @@ module.exports = grammar({
 
     binary_expression: ($) =>
       choice(
-        prec.left(5, seq($._expression, choice("+", "-"), $._expression)),
-        prec.left(6, seq($._expression, choice("*", "/", "%"), $._expression)),
+        prec.left(12, seq($._expression, choice("+", "-"), $._expression)),
+        prec.left(14, seq($._expression, choice("*", "/", "%"), $._expression)),
         prec.left(
-          4,
+          10,
           seq($._expression, choice("<", ">", "<=", ">="), $._expression),
         ),
+        prec.left(15, seq($._expression, "??", $._expression)),
         prec.left(
-          3,
+          8,
           seq(
             $._expression,
             choice(
@@ -510,20 +542,35 @@ module.exports = grammar({
             $._expression,
           ),
         ),
-        prec.left(2, seq($._expression, choice("&&", "AND"), $._expression)),
-        prec.left(1, seq($._expression, choice("||", "OR"), $._expression)),
-        prec.right(seq($._expression, choice("IN", "IS NULL", "IS NOT NULL"))),
+        prec.left(6, seq($._expression, choice("&&", "AND"), $._expression)),
+        prec.left(4, seq($._expression, choice("||", "OR"), $._expression)),
+        prec.left(7, seq($._expression, "IN", $._expression)),
       ),
 
     unary_expression: ($) =>
       prec(
-        10,
+        16,
         choice(seq(choice("!", "NOT"), $._expression), seq("-", $._expression)),
       ),
 
-    property_assignment: ($) => seq($.identifier, ":", $._expression),
+    postfix_expression: ($) =>
+      prec(
+        8,
+        seq(
+          $._expression,
+          choice(
+            seq("IS", "NULL"),
+            seq("IS", "NOT", "NULL"),
+            "IS NULL",
+            "IS NOT NULL",
+          ),
+        ),
+      ),
 
-    assignment_expression: ($) => seq($.property_access, "=", $._expression),
+    property_assignment: ($) =>
+      seq($.identifier, choice(":", "="), $._expression),
+
+    assignment_expression: ($) => prec(15, seq($.property_access, "=", $._expression)),
 
     role_binding: ($) => seq($.identifier, "=>", $._expression),
 
@@ -531,17 +578,23 @@ module.exports = grammar({
     atomic_remove: ($) => seq($.property_access, "-=", $._expression),
 
     property_access: ($) =>
-      seq(
-        field("object", $.identifier),
-        repeat1(seq(".", field("property", $.identifier))),
+      prec.left(
+        20,
+        seq(
+          field("object", $._expression),
+          repeat1(seq(choice(".", "?."), field("property", $.identifier))),
+        ),
       ),
 
     function_call: ($) =>
-      seq(
-        field("name", $.identifier),
-        "(",
-        commaSep(choice($._expression, "*")),
-        ")",
+      prec(
+        18,
+        seq(
+          field("name", $.identifier),
+          "(",
+          commaSepTrailing(choice($._expression, "*")),
+          ")",
+        ),
       ),
 
     window_function: ($) =>
@@ -555,9 +608,27 @@ module.exports = grammar({
             "ORDER",
             "BY",
             commaSep1(seq($._expression, optional(choice("ASC", "DESC")))),
-          ),
+          )
         ),
+        optional($.window_frame),
         ")",
+      ),
+
+    window_frame: ($) =>
+      seq(
+        choice("ROWS", "RANGE"),
+        "BETWEEN",
+        $.window_frame_bound,
+        "AND",
+        $.window_frame_bound,
+      ),
+
+    window_frame_bound: ($) =>
+      choice(
+        "UNBOUNDED PRECEDING",
+        "UNBOUNDED FOLLOWING",
+        "CURRENT ROW",
+        seq($._expression, choice("PRECEDING", "FOLLOWING")),
       ),
 
     match_expression: ($) =>
@@ -565,7 +636,7 @@ module.exports = grammar({
         "MATCH",
         $._expression,
         "{",
-        commaSep1(seq($._expression, "=>", $._expression)),
+        commaSepTrailing(seq($._expression, "=>", $._expression)),
         "}",
       ),
 
@@ -578,9 +649,9 @@ module.exports = grammar({
       ),
 
     subquery_expression: ($) =>
-      seq(choice("EXISTS", "IN"), "(", $.manipulation_statement, ")"),
+      seq(choice("EXISTS", "IN", "NOT EXISTS"), "(", $.manipulation_statement, ")"),
 
-    list_expression: ($) => seq("[", commaSep($._expression), "]"),
+    list_expression: ($) => seq("[", commaSepTrailing($._expression), "]"),
 
     // ==========================================
     // 5. Types & Literals
@@ -610,14 +681,30 @@ module.exports = grammar({
       ),
 
     decorator: ($) =>
-      seq("@", $.identifier, optional(seq("(", commaSep1($._expression), ")"))),
+      seq(
+        "@",
+        $.identifier,
+        optional(
+          choice(
+            seq("(", commaSep1($._expression), ")"),
+            seq("(", "TRAVERSE", ")", "{", $.manipulation_statement, "}"),
+          )
+        ),
+      ),
 
     _projection_element: ($) =>
-      seq($._expression, optional(seq("AS", $.identifier))),
+      seq(
+        choice(
+          seq($.identifier, "{", commaSepTrailing($.identifier), "}"),
+          $._expression,
+        ),
+        optional(seq("AS", $.identifier)),
+      ),
 
     _literal: ($) =>
       choice(
         $.string_literal,
+        $.decimal_literal,
         $.integer_literal,
         $.float_literal,
         $.boolean_literal,
@@ -634,6 +721,8 @@ module.exports = grammar({
         ),
         '"',
       ),
+
+    decimal_literal: ($) => /[0-9]+(\.[0-9]+)?d/,
 
     escape_sequence: ($) =>
       token.immediate(
@@ -652,10 +741,10 @@ module.exports = grammar({
     integer_literal: ($) =>
       token(
         choice(
-          /[0-9]+(_[0-9]+)*/, // Decimal
-          /0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*/, // Hex
-          /0[bB][01]+(_[01]+)*/, // Binary
-          /0[oO][0-7]+(_[0-7]+)*/, // Octal
+          /[0-9]+(_[0-9]+)*/,
+          /0[xX][0-9a-fA-F]+(_[0-9a-fA-F]+)*/,
+          /0[bB][01]+(_[01]+)*/,
+          /0[oO][0-7]+(_[0-7]+)*/,
         ),
       ),
 
@@ -672,9 +761,13 @@ module.exports = grammar({
     variable: ($) => seq("$", $.identifier),
 
     map_literal: ($) =>
-      seq("{", commaSep(seq($.identifier, ":", $._expression)), "}"),
+      seq(
+        "{",
+        commaSepTrailing(choice($.property_assignment, $.role_binding)),
+        "}",
+      ),
 
-    list_literal: ($) => seq("[", commaSep($._expression), "]"),
+    list_literal: ($) => seq("[", commaSepTrailing($._expression), "]"),
 
     identifier: ($) => /[a-zA-Z_][a-zA-Z0-9_]*/,
     namespace_identifier: ($) => /[a-zA-Z_][a-zA-Z0-9_.]*/,
@@ -689,6 +782,12 @@ module.exports = grammar({
         ),
       ),
   },
+
+  conflicts: ($) => [
+    [$.system_statement, $.manipulation_statement],
+    [$._clause, $.manipulation_statement],
+    [$._expression, $.property_access],
+  ],
 });
 
 function commaSep(rule) {
@@ -697,4 +796,8 @@ function commaSep(rule) {
 
 function commaSep1(rule) {
   return seq(rule, repeat(seq(",", rule)));
+}
+
+function commaSepTrailing(rule) {
+  return optional(seq(rule, repeat(seq(",", rule)), optional(",")));
 }
