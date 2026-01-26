@@ -50,7 +50,7 @@ module.exports = grammar({
         "ENUM",
         field("name", $.identifier),
         "{",
-        commaSep($.identifier),
+        commaSep(field("value", $.identifier)),
         "}",
         optional(";"),
       ),
