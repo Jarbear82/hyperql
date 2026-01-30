@@ -178,7 +178,8 @@
 
 ; Property access
 (property_access property: (identifier) @property)
-(property_assignment (identifier) @property)
+(property_assignment name: (identifier) @property)
+(property_assignment value: (identifier) @variable)
 (named_constraint (identifier) @property)
 
 ; Inferred identifiers (e.g. .MALE)
@@ -187,7 +188,8 @@
 ; Roles (semantically properties/edges)
 (define_role name: (identifier) @variable.parameter) ; Using variable.parameter to distinguish definition
 (role_definition name: (identifier) @property)
-(role_binding (identifier) @property)
+(role_binding name: (identifier) @property)
+(role_binding value: (identifier) @variable)
 
 ; ==========================================
 ; Decorators / Attributes

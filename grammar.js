@@ -583,11 +583,11 @@ module.exports = grammar({
       ),
 
     property_assignment: ($) =>
-      seq($.identifier, "=", $._expression),
+      seq(field("name", $.identifier), "=", field("value", $._expression)),
 
     assignment_expression: ($) => prec(15, seq($.property_access, "=", $._expression)),
 
-    role_binding: ($) => seq($.identifier, "=>", $._expression),
+    role_binding: ($) => seq(field("name", $.identifier), "=>", field("value", $._expression)),
 
     atomic_append: ($) => seq($.property_access, "+=", $._expression),
     atomic_remove: ($) => seq($.property_access, "-=", $._expression),
