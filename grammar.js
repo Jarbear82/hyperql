@@ -511,6 +511,7 @@ module.exports = grammar({
         $.unary_expression,
         $.postfix_expression,
         $.case_expression,
+        $.if_expression,
         $.match_expression,
         $.subquery_expression,
         $.window_function,
@@ -659,6 +660,17 @@ module.exports = grammar({
         "CASE",
         repeat(seq("WHEN", $._expression, "THEN", $._expression)),
         optional(seq("ELSE", $._expression)),
+        "END",
+      ),
+
+    if_expression: ($) =>
+      seq(
+        "IF",
+        field("condition", $._expression),
+        "THEN",
+        field("consequence", $._expression),
+        "ELSE",
+        field("alternative", $._expression),
         "END",
       ),
 
