@@ -1,0 +1,20 @@
+[licenses]
+# Allow-list for "Business Friendly" licenses
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+]
+
+# Specifically deny "Copyleft" licenses that force you to open-source your Pro features
+deny = [
+    "GPL-2.0",
+    "GPL-3.0",
+    "AGPL-3.0",
+    "LGPL-3.0",
+]
+
+# Ensure all dependencies have a license
+unlicensed = "deny"

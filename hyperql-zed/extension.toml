@@ -9,3 +9,7 @@ repository = "https://github.com/jarbear82/hyperql"
 [grammars.hyperql]
 repository = "file:///home/jarbear82/Documents/tree-sitter/tree-sitter-hyperql"
 rev = "13e6d22c5249f341a015716e5d59ec8b9d1c6968"
+
+[language_servers.hyperql]
+name = "hyperql-lsp"
+languages = ["HyperQL"]

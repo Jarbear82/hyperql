@@ -2,6 +2,7 @@
   "name": "tree-sitter-hyperql",
   "version": "0.15.0",
   "description": "HyperQL grammar for tree-sitter",
+  "license": "Apache-2.0",
   "main": "bindings/node",
   "keywords": [
     "parsing",

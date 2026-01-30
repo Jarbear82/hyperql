@@ -1,0 +1,49 @@
+name: License Guard
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  audit-licenses:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 1. Audit Rust (Zed Extension)
+      - name: Install cargo-deny
+        run: cargo install --locked cargo-deny || true
+      
+      - name: Check Rust Licenses
+        run: |
+          if [ -f Cargo.toml ]; then
+            cargo deny check licenses
+          else
+            echo "No Cargo.toml found in root. Skipping root cargo deny."
+          fi
+          # Check subdirectories if needed, or if workspace is configured
+          # If hyperql-zed/Cargo.toml exists later:
+          # cd hyperql-zed && cargo deny check licenses
+
+      # 2. Audit Zig (LSP Server)
+      # Scans build.zig.zon for restricted licenses
+      - name: Scan Zig dependencies
+        run: |
+          if [ -f build.zig.zon ]; then
+            if grep -Ei "gpl|agpl" build.zig.zon; then
+              echo "Error: Potential GPL/AGPL dependency detected in build.zig.zon"
+              exit 1
+            else
+              echo "Zig dependencies appear compliant."
+            fi
+          else
+             # Scan subdirectories
+             find . -name "build.zig.zon" | while read zon_file; do
+               if grep -Ei "gpl|agpl" "$zon_file"; then
+                 echo "Error: Potential GPL/AGPL dependency detected in $zon_file"
+                 exit 1
+               fi
+             done
+          fi
