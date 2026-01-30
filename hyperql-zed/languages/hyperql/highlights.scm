@@ -94,10 +94,23 @@
 ; ==========================================
 
 ; Built-in types found in _data_type
-(
-  (_data_type) @type.builtin
-  (#match? @type.builtin "^(String|Int|Int32|Float|Bool|Date|UUID|Interval|Time|Path|Decimal|Vector|List|Enum|Struct)$")
-)
+[
+  "String"
+  "Int"
+  "Int32"
+  "Float"
+  "Bool"
+  "Date"
+  "UUID"
+  "Interval"
+  "Time"
+  "Path"
+  "Decimal"
+  "Vector"
+  "List"
+  "Enum"
+  "Struct"
+] @type.builtin
 
 ; Generic Type names (User defined or complex)
 (define_node name: (identifier) @type)
