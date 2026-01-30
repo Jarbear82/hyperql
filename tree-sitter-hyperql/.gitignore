@@ -18,7 +18,7 @@ prebuilds/
 .tree-sitter/
 
 # Cargo / Rust (if you are publishing a Rust crate)
-# Note: Do not ignore Cargo.lock if you want reproducible builds, 
+# Note: Do not ignore Cargo.lock if you want reproducible builds,
 # but for libraries, it is sometimes ignored. Standard is usually to keep it.
 target/
 **/*.rs.bk
@@ -37,5 +37,8 @@ target/
 # /src/parser.c
 # /src/tree_sitter/
 *.target.mk
+
+zig-out/
+zig-cache/
 
 # DO NOT ignore the wasm file needed for the Zed extension

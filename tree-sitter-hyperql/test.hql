@@ -130,8 +130,8 @@ DEFINE EDGE Friendship {
 
 DEFINE EDGE ActiveQuest {
     started_at,
-    player: <- quester (ONE),
-    quest: -> quest_ref (ONE)
+    player <- quester (ONE),
+    quest -> quest_ref (ONE)
 } {
     constraints: [
         started_at <= NOW()
@@ -173,8 +173,8 @@ MATCH (g:Guild { id: "guild-id-placeholder" })
 CREATE EDGE e:Membership {
     member => p,           // 0.16 Syntax: Role binding uses '=>'
     guild => g,
-    joined_at: NOW(),
-    rank: "Member"
+    joined_at = NOW(),
+    rank = "Member"
 };
 
 // Complex Pattern Matching

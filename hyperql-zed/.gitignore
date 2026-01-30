@@ -3,3 +3,4 @@ work/
 grammars/*/
 !grammars/*.wasm
 .DS_Store
+extension.wasm
