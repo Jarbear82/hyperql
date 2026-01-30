@@ -1,0 +1,5 @@
+target/
+work/
+grammars/*/
+!grammars/*.wasm
+.DS_Store
