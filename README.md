@@ -40,3 +40,32 @@ npm run build
 We welcome contributions to the Community Edition! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details.
 
 **Note:** All community contributions are licensed under Apache 2.0.
+
+## Development Setup (Installing as Dev Extension)
+
+To install this repo as a local Zed extension:
+
+1.  **Clone the repository**:
+    ```bash
+    git clone https://github.com/Jarbear82/hyperql.git
+    cd hyperql
+    ```
+
+2.  **Run the Setup Script**:
+    This script builds the LSP and configures the extension to use your local paths.
+    ```bash
+    ./setup.sh
+    ```
+
+3.  **Link the LSP**:
+    Follow the instructions from the script to add `hyperql-lsp` to your PATH.
+    ```bash
+    ln -sf $(pwd)/hyperql-lsp/zig-out/bin/hyperql-lsp ~/.cargo/bin/hyperql-lsp
+    ```
+
+4.  **Install in Zed**:
+    *   Open Zed.
+    *   Open Command Palette (`Ctrl/Cmd + Shift + P`).
+    *   Run `extensions: install dev extension`.
+    *   Select the `hyperql-zed` folder.
+
