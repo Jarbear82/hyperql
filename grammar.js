@@ -149,23 +149,12 @@ module.exports = grammar({
       ),
 
     role_definition: ($) =>
-      choice(
-        seq(
-          field("name", $.identifier),
-          optional("?"),
-          ":",
-          optional(field("direction", choice("<-", "->", "<->"))),
-          field("role_type", $.identifier),
-          field("cardinality", choice("(ONE)", "(MANY)")),
-          repeat($.decorator),
-        ),
-        seq(
-          field("name", $.identifier),
-          optional("?"),
-          field("direction", choice("<-", "->", "<->")),
-          field("cardinality", choice("(ONE)", "(MANY)")),
-          repeat($.decorator),
-        ),
+      seq(
+        field("name", $.identifier),
+        optional("?"),
+        field("direction", choice("<-", "->", "<->")),
+        field("cardinality", choice("(ONE)", "(MANY)")),
+        repeat($.decorator),
       ),
 
     constraint_block: ($) =>

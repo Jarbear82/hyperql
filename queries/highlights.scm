@@ -211,6 +211,11 @@
 (null_literal) @constant.builtin
 (map_literal) @embedded
 
+[
+  "(ONE)"
+  "(MANY)"
+] @constant.builtin
+
 ; Enum values definition
 (define_enum value: (identifier) @constant)
 
