@@ -1,52 +1,24 @@
-;;; --- KEYWORDS & CLAUSES ---
+; ==========================================
+; Keywords
+; ==========================================
 
 [
   "DEFINE"
   "NAMESPACE"
-  "ENUM"
   "FIELD"
   "ROLE"
-  "STRUCT"
-  "TRAIT"
   "NODE"
   "EDGE"
+  "STRUCT"
+  "TRAIT"
+  "ENUM"
   "INDEX"
-  "MATCH"
-  "CREATE"
-  "RETURN"
-  "SET"
-  "DELETE"
-  "WHERE"
-  "WITH"
-  "ORDER"
-  "BY"
-  "LIMIT"
-  "SKIP"
-  "UNWIND"
-  "UNION"
-  "USE"
-  "CASE"
-  "WHEN"
-  "THEN"
-  "ELSE"
-  "END"
-  "DISTINCT"
-  "OPTIONAL"
-  "MERGE"
-  "ON"
-  "DETACH"
-  "REMOVE"
-  "GROUP"
-  "IMPORT"
-  "AS"
-  "SHOW"
-  "EXPLAIN"
-  "ANALYZE"
-  "BEGIN"
-  "COMMIT"
-  "ROLLBACK"
-  "MIGRATE"
+  "ABSTRACT"
+  "EXTENDS"
+  "STRICT_MODE"
   "VALIDATE"
+  "MIGRATION"
+  "MIGRATE"
   "ALTER"
   "ADD"
   "DROP"
@@ -54,142 +26,87 @@
   "TO"
   "MAP"
   "DEFAULTS"
-  "EXTENDS"
-  "ABSTRACT"
-  "STRICT_MODE"
-  "ALLOWS"
+  "SHOW"
+  "EXPLAIN"
+  "ANALYZE"
+  "VERBOSE"
+  "JSON"
+  "BATCH"
+  "BEGIN"
+  "COMMIT"
+  "ROLLBACK"
+  "SET"
   "ISOLATION"
   "LEVEL"
-  "BATCH"
-  "WEIGHT"
-  "USING"
-  "SUM"
-  "MAX"
-  "MIN"
-  "AVG"
-  "CROSS_TYPE"
-  "PATH"
-  "OBJECT"
-  "EXISTS"
-  "IN"
-  "IS"
-] @keyword
-
-(list_predicate
-  [
-    "ALL"
-    "ANY"
-    "NONE"
-    "SINGLE"
-  ] @keyword)
-
-(postfix_expression
-  [
-    "IS NULL"
-    "IS NOT NULL"
-  ] @keyword)
-
-; Complex Phrases
-[
-  "READ UNCOMMITTED"
-  "READ COMMITTED"
-  "REPEATABLE READ"
-  "SERIALIZABLE"
-  "READ_UNCOMMITTED"
-  "READ_COMMITTED"
-  "REPEATABLE_READ"
   "ON ERROR CONTINUE"
-] @keyword
-
-; Sorting & Windows
-[
+  "IMPORT"
+  "AS"
+  "MATCH"
+  "OPTIONAL"
+  "CROSS_TYPE"
+  "WHERE"
+  "WITH"
+  "RETURN"
+  "DISTINCT"
+  "ORDER"
+  "BY"
   "ASC"
   "DESC"
+  "LIMIT"
+  "SKIP"
+  "GROUP"
+  "UNION"
+  "ALL"
+  "UNWIND"
+  "USE"
+  "WEIGHT"
+  "USING"
+  "CASE"
+  "WHEN"
+  "THEN"
+  "ELSE"
+  "END"
+  "IF"
+  "CREATE"
+  "DELETE"
+  "DETACH"
+  "REMOVE"
+  "MERGE"
+  "OBJECT"
+  "ALLOWS"
+  "TRAVERSE"
   "OVER"
   "PARTITION"
   "ROWS"
   "RANGE"
   "BETWEEN"
-  "AND"
+  "PRECEDING"
+  "FOLLOWING"
+  "CURRENT ROW"
+  "UNBOUNDED"
 ] @keyword
 
+(constraint_block "constraints" @keyword)
 
-;;; --- OPERATORS ---
+; ==========================================
+; Types
+; ==========================================
 
-[
-  "->"
-  "<-"
-  "<->"
-  "+="
-  "-="
-  "=="
-  "!="
-  ">="
-  "<="
-  "&&"
-  "||"
-  "!"
-  "="
-  "+"
-  "-"
-  "*"
-  "/"
-  "%"
-  "<"
-  ">"
-  "??"
-  "?."
-  "=>"
-] @operator
+; Built-in types found in _data_type
+(
+  (_data_type) @type.builtin
+  (#match? @type.builtin "^(String|Int|Int32|Float|Bool|Date|UUID|Interval|Time|Path|Decimal|Vector|List|Enum|Struct)$")
+)
 
-(node_pattern ":" @punctuation.delimiter)
-(edge_pattern ":" @punctuation.delimiter)
-(property_assignment "=" @punctuation.delimiter)
-(property_access ["." "?."] @punctuation.delimiter)
-(inferred_identifier (identifier) @variable.member)
-(edge_pattern "*" @operator)
-(range_literal ".." @operator)
+; Generic Type names (User defined or complex)
+(define_node name: (identifier) @type)
+(define_edge name: (identifier) @type)
+(define_enum name: (identifier) @type)
+(define_struct name: (identifier) @type)
+(define_trait name: (identifier) @type)
+(define_index type: (identifier) @type)
 
-
-;;; --- TYPES & DEFINITIONS ---
-
-; 1. Schema Definitions
-(define_node name: (identifier) @type.definition)
-(define_edge name: (identifier) @type.definition)
-(define_struct name: (identifier) @type.definition)
-(define_trait name: (identifier) @type.definition)
-(define_enum name: (identifier) @type.definition)
-(define_namespace name: (namespace_identifier) @namespace)
-(define_index name: (identifier) @type.definition)
-
-; 2. Field & Role Definitions
-(define_field name: (identifier) @variable.member)
-(field_definition name: (identifier) @variable.member)
-(define_role name: (identifier) @variable.special)
-(role_definition name: (identifier) @variable.special)
-(role_definition role_type: (identifier) @type)
-(role_definition cardinality: _ @constant.builtin)
-(role_definition direction: _ @operator)
-
-; 3. Type Identifiers
-[
-  "String"
-  "Int"
-  "Int32"
-  "Float"
-  "Bool"
-  "Date"
-  "UUID"
-  "Interval"
-  "Time"
-  "Path"
-  "Decimal"
-  "Vector"
-  "List"
-  "Enum"
-  "Struct"
-] @type.builtin
-
+; Type references in clauses
 (create_node_clause type: (dotted_identifier) @type)
 (create_edge_clause type: (dotted_identifier) @type)
 (merge_clause type: (dotted_identifier) @type)
@@ -197,96 +114,125 @@
 (edge_pattern type: (dotted_identifier) @type)
 (define_field type: (_) @type)
 (field_definition type: (_) @type)
-(define_index type: (identifier) @type)
+(extends_clause (identifier) @type)
+(validate_migration (identifier) @type)
+(migrate (identifier) @type)
 
+; ==========================================
+; Functions
+; ==========================================
 
-;;; --- VARIABLES & PROPERTIES ---
+; Built-in functions specified in HyperQL 0.16 spec
+(function_call
+  name: (identifier) @function.builtin
+  (#match? @function.builtin "^(COUNT|SUM|AVG|MIN|MAX|COLLECT|STRING_AGG|COALESCE|NULLIF|TO_STRING|TO_INT|TO_FLOAT|TO_DECIMAL|UPPER|LOWER|LEN|TRIM|SUBSTR|CONCAT|CONTAINS|STARTS_WITH|ENDS_WITH|ABS|ROUND|FLOOR|CEIL|NOW|YEAR|MONTH|DAY|DATE|TIME|INTERVAL|LIST_INDEX|LIST_SLICE|SHORTEST_PATH|ALL_SHORTEST_PATHS|K_SHORTEST_PATHS|PAGERANK|BETWEENNESS_CENTRALITY|DEGREE_CENTRALITY|CONNECTED_COMPONENTS|LOUVAIN|TRIANGLE_COUNT|FIND_CYCLES|JACCARD_SIMILARITY|COSINE_SIMILARITY|ROW_NUMBER|RANK|DENSE_RANK|NTILE|LAG|LEAD|FIRST_VALUE|LAST_VALUE)$")
+)
 
-(variable) @variable.parameter
-(identifier) @variable
+; Generic function calls
+(function_call name: (identifier) @function)
 
-; Pattern variables
-(node_pattern variable: (identifier) @variable.parameter)
-(edge_pattern variable: (identifier) @variable.parameter)
-(match_path_clause path_var: (identifier) @variable.parameter)
+; ==========================================
+; Variables
+; ==========================================
 
-; Create/Merge variables
-(create_node_clause variable: (identifier) @variable.parameter)
-(create_edge_clause variable: (identifier) @variable.parameter)
-(merge_clause variable: (identifier) @variable.parameter)
-(merge_object_clause variable: (identifier) @variable.parameter)
+; Variable declaration contexts
+(match_path_clause path_var: (identifier) @variable)
+(create_node_clause variable: (identifier) @variable)
+(create_edge_clause variable: (identifier) @variable)
+(merge_clause variable: (identifier) @variable)
+(merge_object_clause variable: (identifier) @variable)
+(node_pattern variable: (identifier) @variable)
+(edge_pattern variable: (identifier) @variable)
+(unwind_clause (identifier) @variable)
+(import_clause (identifier) @variable)
 
-; Fields (Usage)
-(property_assignment (identifier) @property)
+; $variable syntax
+(variable (identifier) @variable)
+
+; "this" builtin
+((identifier) @variable.builtin (#eq? @variable.builtin "this"))
+
+; ==========================================
+; Properties & Fields
+; ==========================================
+
+; Definition contexts
+(define_field name: (identifier) @property)
+(field_definition name: (identifier) @property)
+(define_struct field: (identifier) @property)
+(define_trait field: (identifier) @property)
+
+; Property access
 (property_access property: (identifier) @property)
+(property_assignment (identifier) @property)
 (named_constraint (identifier) @property)
 
-; Role Bindings (Instance Creation)
-(role_binding (identifier) @variable.special)
+; Inferred identifiers (e.g. .MALE)
+(inferred_identifier (identifier) @property)
 
+; Roles (semantically properties/edges)
+(define_role name: (identifier) @variable.parameter) ; Using variable.parameter to distinguish definition
+(role_definition name: (identifier) @property)
+(role_binding (identifier) @property)
 
-;;; --- FUNCTIONS & DECORATORS ---
+; ==========================================
+; Decorators / Attributes
+; ==========================================
 
-; Generic
-(function_call name: (identifier) @function.call)
-(decorator (identifier) @attribute)
 (decorator "@" @punctuation.special)
+(decorator (identifier) @attribute)
 
-; Built-in Aggregate Functions
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(COUNT|SUM|AVG|MIN|MAX|COLLECT|STRING_AGG)$"))
-
-; Built-in Window Functions
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(ROW_NUMBER|RANK|DENSE_RANK|NTILE|LAG|LEAD|FIRST_VALUE|LAST_VALUE)$"))
-
-; Built-in String/Utility Functions
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(UPPER|LOWER|LEN|LENGTH|TRIM|SUBSTR|SUBSTRING|CONCAT|CONTAINS|STARTS_WITH|ENDS_WITH|NOW|ROUND|COALESCE|NULLIF|IF|UUID|LIST_INDEX|LIST_SLICE)$"))
-
-; Built-in Type Conversion Functions
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(TO_STRING|TO_INT|TO_FLOAT|TO_BOOL|TO_DATE|TO_DECIMAL)$"))
-
-; Built-in Math Functions
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(ABS|FLOOR|CEIL)$"))
-
-; Built-in Date Functions
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(YEAR|MONTH|DAY|DATE|TIME|INTERVAL)$"))
-
-; Built-in Graph Algorithms
-(function_call name: (identifier) @function.builtin
-  (#match? @function.builtin "^(SHORTEST_PATH|ALL_SHORTEST_PATHS|K_SHORTEST_PATHS|PAGERANK|BETWEENNESS_CENTRALITY|DEGREE_CENTRALITY|CONNECTED_COMPONENTS|LOUVAIN|TRIANGLE_COUNT|FIND_CYCLES|JACCARD_SIMILARITY|COSINE_SIMILARITY|VECTOR_SIMILARITY)$"))
-
-; Built-in Decorators
-(decorator (identifier) @attribute.builtin
-  (#match? @attribute.builtin "^(computed|materialized|volatile|display|unique|required|readonly|optional|ordered|unordered|index|length)$"))
-
-
-;;; --- LITERALS ---
+; ==========================================
+; Literals & Constants
+; ==========================================
 
 (string_literal) @string
 (escape_sequence) @string.escape
 (integer_literal) @number
+(float_literal) @number
 (decimal_literal) @number
-(float_literal) @number.float
 (boolean_literal) @boolean
 (null_literal) @constant.builtin
+(map_literal) @embedded
+
+; Enum values definition
+(define_enum value: (identifier) @constant)
+
+; ALL_CAPS identifiers as constants
+((identifier) @constant (#match? @constant "^[A-Z][A-Z0-9_]+$"))
+
+; ==========================================
+; Comments
+; ==========================================
 
 (comment) @comment
 
+; ==========================================
+; Operators & Punctuation
+; ==========================================
+
 [
-  "("
-  ")"
-  "["
-  "]"
-  "{"
-  "}"
+  "+" "-" "*" "/" "%"
+  "<" ">" "<=" ">="
+  "==" "=" "!=" "!"
+  "&&" "||" "AND" "OR" "NOT"
+  "??" "?."
+  "IS" "IS NULL" "IS NOT NULL"
+  "LIKE" "ILIKE" "MATCHES" "IMATCHES"
+  "IN" "EXISTS"
+  "=>" "->" "<-" "<->" "+=" "-="
+] @operator
+
+[
+  "(" ")"
+  "[" "]"
+  "{" "}"
 ] @punctuation.bracket
 
 [
-  ","
   ";"
+  ","
+  "."
+  ":"
+  "?"
 ] @punctuation.delimiter
