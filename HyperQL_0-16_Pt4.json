@@ -1,0 +1,473 @@
+{
+  "hyperql_version": "0.16",
+  "part": "4_clients_and_tooling",
+
+  "write_clauses": [
+    {
+      "keyword": "CREATE NODE",
+      "syntax": "CREATE NODE variable:TypeName { key = value, ... };",
+      "description": "Creates a new node entity. Node-level constraints are validated before creation.",
+      "validation": "Evaluates all node constraints. Fails with [3011] if any constraint is violated.",
+      "example": "CREATE NODE alice:Person { id = UUID(), name = \"Alice\", age = 25 };",
+      "notes": "Constraint validation occurs before commit, within the transaction boundary"
+    },
+    {
+      "keyword": "CREATE EDGE",
+      "syntax": "CREATE EDGE variable:TypeName { field = value, role => node, ... };",
+      "description": "Creates a new hyperedge. Role binding uses '=>' to assign specific nodes to roles. Validates role constraints and edge constraints before creation.",
+      "binding_operator": {
+        "symbol": "=>",
+        "purpose": "Binds a node instance to a role",
+        "distinction": "Differs from schema arrows (<- ->) which define directionality"
+      },
+      "validation": {
+        "order": "1. Validate nodes exist, 2. Validate role constraints, 3. Validate edge constraints",
+        "error_codes": "[3012] for role constraint violations, [3013] for edge constraint violations"
+      },
+      "example": "CREATE EDGE m:Marriage { husband => doug, wife => nini, date = DATE(\"1999/08/20\") };",
+      "notes": "All role assignments must be valid before edge constraints are evaluated"
+    },
+    {
+      "keyword": "MERGE",
+      "syntax": "MERGE (var: TypeName { role => node, ... }) [ON CREATE SET ...] [ON MATCH SET ...]",
+      "description": "Upsert operation. Supports Property-Based Matching OR Role-Binding Matching (if @unique constraint exists on roles). Uses '=>' for role binding.",
+      "examples": [
+        "-- Role-Based (requires @unique(student, course))\nMERGE (e:Enrollment { student => s, course => c });",
+        "-- Property-Based\nMERGE (p:Person { Email = \"alice@example.com\" });"
+      ],
+      "role_binding": {
+        "description": "To MERGE on hyperedge roles, the roles must be part of a @unique constraint. Falls back to property matching if no such constraint exists.",
+        "restriction": "Cannot MERGE on (MANY) cardinality roles."
+      },
+      "edge_cases": {
+        "readonly_fields": {
+          "on_create": "Can set @readonly fields - allowed on creation",
+          "on_match": "Cannot modify @readonly fields - error [3023]",
+          "example": "MERGE (p:Person { email = $email }) ON CREATE SET p.id = UUID(), p.created = NOW() ON MATCH SET p.updated = NOW();"
+        },
+        "computed_fields": {
+          "behavior": "@computed fields cannot be set via MERGE",
+          "error": "[2040] Cannot set computed property",
+          "workaround": "Set underlying fields that computed property depends on"
+        },
+        "unique_violations": {
+          "on_create": "If ON CREATE SET causes @unique violation, error [3001]",
+          "example": "MERGE (p:Person { id = $id }) ON CREATE SET p.email = $email -- Fails if email exists"
+        },
+        "null_in_pattern": {
+          "behavior": "Null in MERGE pattern acts as wildcard, matches any value",
+          "example": "MERGE (p:Person { email = $email, middle_name = null }) -- Matches any Person with that email, regardless of middle_name"
+        },
+        "role_based_without_unique": {
+          "error": "[3002] Role-based MERGE requires @unique constraint",
+          "example": "MERGE (e:Enrollment { student => s, course => c }) -- Fails unless @unique(student, course) exists"
+        }
+      }
+    },
+    {
+      "keyword": "MERGE OBJECT",
+      "syntax": "MERGE OBJECT variable WITH $map",
+      "description": "Soft Update."
+    },
+    {
+      "keyword": "SET (bulk update)",
+      "syntax": "SET variable += { field = value, ... }",
+      "description": "Bulk property update. Merges provided properties into node/edge, preserving unmentioned fields. Alias for MERGE OBJECT syntax.",
+      "semantics": "Soft update - only specified fields are modified",
+      "example": "MATCH (p:Person { id = $id }) SET p += { active = true, last_updated = NOW() };",
+      "equivalence": "SET p += {...} is equivalent to MERGE OBJECT p WITH {...}",
+      "notes": [
+        "Unmentioned fields remain unchanged",
+        "Null values in update object set field to null (not treated as wildcards like in MERGE patterns)",
+        "Triggers validation for updated fields only"
+      ]
+    },
+    {
+      "keyword": "SET +=",
+      "syntax": "SET variable.role += node | SET variable.role += [node1, node2]",
+      "description": "Atomic Append. Adds node(s) to a (MANY) cardinality role. Respects @ordered/@unordered semantics.",
+      "restriction": "Only valid for (MANY) roles."
+    },
+    {
+      "keyword": "SET -=",
+      "syntax": "SET variable.role -= node",
+      "description": "Atomic Remove. Removes node(s) from a (MANY) cardinality role.",
+      "restriction": "Only valid for (MANY) roles."
+    },
+    {
+      "keyword": "SET",
+      "syntax": "SET variable.field = value | SET variable.role = [n1, n2]",
+      "description": "Updates specific properties or fully replaces a role collection."
+    },
+    {
+      "keyword": "DELETE",
+      "syntax": "DELETE variable",
+      "description": "Deletes a node or edge. Fails if connected."
+    },
+    {
+      "keyword": "DETACH DELETE",
+      "syntax": "DETACH DELETE variable",
+      "description": "Removes connections then deletes."
+    }
+  ],
+
+  "arrow_operator_summary": {
+    "operators": {
+      "schema_arrows": {
+        "left_arrow": {
+          "symbol": "<-",
+          "context": "DEFINE EDGE schema definitions",
+          "meaning": "Source role (incoming)",
+          "example": "husband <- (ONE)"
+        },
+        "right_arrow": {
+          "symbol": "->",
+          "context": "DEFINE EDGE schema definitions",
+          "meaning": "Target role (outgoing)",
+          "example": "employer -> (ONE)"
+        },
+        "bidirectional_arrow": {
+          "symbol": "<->",
+          "context": "DEFINE EDGE schema definitions",
+          "meaning": "Bidirectional role (symmetric)",
+          "example": "friend <-> (MANY)"
+        }
+      },
+      "instance_binding": {
+        "fat_arrow": {
+          "symbol": "=>",
+          "context": "CREATE EDGE instance creation",
+          "meaning": "Binds node to role",
+          "example": "husband => doug"
+        }
+      }
+    },
+    "design_rationale": "Visual distinction between schema definition (structure) and instance creation (data) prevents ambiguity and improves readability."
+  },
+
+  "read_clauses": [
+    {
+      "keyword": "IMPORT",
+      "syntax": "IMPORT \"Namespace.Path\" AS Alias",
+      "description": "Imports a namespace."
+    },
+    {
+      "keyword": "MATCH",
+      "syntax": "MATCH (var:TypeName) | MATCH (var:TypeName { field: value }) | MATCH (var)-[edge:EdgeType { field: value }]-(other) | MATCH (var) CROSS_TYPE WHERE ...",
+      "description": "Matches nodes and edges. Supports inline property predicates for both nodes and edges.",
+      "edge_property_matching": {
+        "syntax": "MATCH (a)-[e:EdgeType { property: value }]-(b)",
+        "description": "Edge properties can be filtered inline in the pattern",
+        "example": "MATCH (p:Person)-[f:Friendship { since: 2020 }]-(other) RETURN other;",
+        "equivalence": "Inline edge properties are equivalent to WHERE clause filters but may enable better query optimization"
+      },
+      "pattern_examples": [
+        "MATCH (n:Person);",
+        "MATCH (n:Person { name: \"Alice\" });",
+        "MATCH (p:Person)-[f:Friendship { active: true }]-(other);",
+        "MATCH (n) CROSS_TYPE WHERE n.LastName = 'Smith';"
+      ]
+    },
+    {
+      "keyword": "MATCH PATH",
+      "syntax": "MATCH PATH var = (start)-[:Edge* {role} WEIGHT BY field USING [SUM|MAX|MIN|AVG]]->(end)",
+      "description": "Variable-length path query. WEIGHT BY specifies cost, USING determines the algorithm.",
+      "weight_clause": {
+        "syntax": "WEIGHT BY field [USING aggregation]",
+        "algorithms": {
+          "SUM": "Dijkstra / A* (Default). Supports heuristics.",
+          "MAX": "Bottleneck Path. Minimizes maximum edge weight. No heuristics.",
+          "MIN": "Widest Path. Maximizes minimum edge weight. No heuristics.",
+          "AVG": "Average-Cost Path. No heuristics."
+        }
+      }
+    },
+    {
+      "keyword": "OPTIONAL MATCH",
+      "syntax": "OPTIONAL MATCH ...",
+      "description": "Matches pattern or returns nulls."
+    },
+    {
+      "keyword": "WHERE",
+      "syntax": "WHERE condition",
+      "description": "Filters matched results."
+    },
+
+    {
+      "keyword": "WHERE (path predicates)",
+      "syntax": "WHERE ALL|ANY|NONE(var IN path.nodes|path.edges WHERE condition)",
+      "description": "Path-specific predicates for filtering based on intermediate nodes or edges in a path query.",
+      "examples": [
+        "WHERE ALL(node IN p.nodes WHERE node.Age > 18)",
+        "WHERE ANY(node IN p.nodes WHERE node.IsElementian)",
+        "WHERE NONE(edge IN p.edges WHERE edge.Blocked)"
+      ],
+      "notes": "Only valid in queries using MATCH PATH. Can reference both nodes and edges collections from PATH object."
+    },
+    {
+      "keyword": "EXISTS",
+      "syntax": "EXISTS (subquery)",
+      "description": "Boolean operator that returns true if subquery returns any results. Supports correlated subqueries.",
+      "example": "WHERE EXISTS (MATCH (e:Commute { driver => p }) WHERE e.Date > \"2025-01-01\");"
+    },
+    {
+      "keyword": "IN",
+      "syntax": "expression IN (subquery)",
+      "description": "Boolean operator that returns true if expression matches any value returned by subquery.",
+      "example": "WHERE p.Department IN (MATCH (d:Department) WHERE d.Budget > 1000000 RETURN d.Name);"
+    },
+    {
+      "keyword": "IS NULL / IS NOT NULL",
+      "syntax": "field IS NULL | field IS NOT NULL",
+      "description": "Null checking operators. Also supports shorthand: field == null, field != null",
+      "examples": [
+        "WHERE p.MiddleName IS NOT NULL;",
+        "WHERE f IS NULL;  -- After OPTIONAL MATCH",
+        "WHERE p.Email != null;  -- Shorthand syntax"
+      ]
+    },
+    {
+      "keyword": "LIKE / ILIKE",
+      "syntax": "string LIKE pattern | string ILIKE pattern",
+      "description": "Wildcard pattern matching. % matches any characters, _ matches single character. ILIKE is case-insensitive.",
+      "examples": [
+        "WHERE p.Name LIKE \"A%\";  -- Starts with A",
+        "WHERE p.Name LIKE \"%son\";  -- Ends with son",
+        "WHERE p.Email ILIKE \"%@GMAIL.COM\";  -- Case-insensitive"
+      ]
+    },
+    {
+      "keyword": "MATCHES / IMATCHES",
+      "syntax": "string MATCHES regex | string IMATCHES regex",
+      "description": "Regular expression pattern matching. IMATCHES is case-insensitive. Uses standard regex syntax with backslash escaping.",
+      "examples": [
+        "WHERE p.Email MATCHES \"^[a-z]+@[a-z]+\\\\.com$\";",
+        "WHERE p.Phone MATCHES \"^\\\\d{3}-\\\\d{3}-\\\\d{4}$\";"
+      ],
+      "escaping": "Backslashes must be doubled in string literals: \\\\d for digit class, \\\\. for literal dot"
+    },
+
+    {
+      "keyword": "WITH",
+      "syntax": "WITH var1, var2, ...",
+      "description": "Pipeline barrier. Resets scope to ONLY the listed variables. Shadowing forbidden."
+    },
+    {
+      "keyword": "GROUP BY",
+      "syntax": "GROUP BY expression1, ...",
+      "description": "Groups results."
+    },
+    {
+      "keyword": "ORDER BY",
+      "syntax": "ORDER BY expression [ASC|DESC]",
+      "description": "Sorts results."
+    },
+    {
+      "keyword": "LIMIT",
+      "syntax": "LIMIT count",
+      "description": "Limits result count."
+    },
+    {
+      "keyword": "SKIP",
+      "syntax": "SKIP count",
+      "description": "Skips results."
+    },
+
+    {
+      "keyword": "DISTINCT",
+      "syntax": "RETURN DISTINCT expression",
+      "description": "Removes duplicate values from results. Applied to individual expressions or entire result rows.",
+      "examples": [
+        "RETURN DISTINCT p.Department",
+        "RETURN DISTINCT p.Name, p.Department  -- Distinct combinations"
+      ]
+    },
+
+    {
+      "keyword": "RETURN",
+      "syntax": "RETURN var | expression [AS alias] | { field: expr, ... } [AS alias] | var { field1, field2, ... } [AS alias]",
+      "description": "Final projection. Supports tuple/record construction for structured output.",
+      "tuple_syntax": {
+        "object_literal": {
+          "syntax": "{ field: expression, ... }",
+          "description": "Constructs anonymous record/object",
+          "example": "RETURN { name: p.name, age: p.age } AS person_info"
+        },
+        "projection": {
+          "syntax": "var { field1, field2, ... }",
+          "description": "Projects specific fields from variable into record",
+          "example": "RETURN p { name, age, email }",
+          "equivalence": "Equivalent to { name: p.name, age: p.age, email: p.email }"
+        },
+        "nested": {
+          "description": "Tuples can be nested",
+          "example": "RETURN { person: p { name, age }, company: c { name } }"
+        }
+      },
+      "examples": [
+        "RETURN p",
+        "RETURN p.name AS name",
+        "RETURN { name: p.name, age: p.age }",
+        "RETURN p { name, age }",
+        "RETURN { person: p { name }, friends: COLLECT(f { name }) }"
+      ]
+    },
+    {
+      "keyword": "UNION",
+      "syntax": "UNION | UNION ALL",
+      "description": "Combines query results."
+    },
+
+    {
+      "keyword": "UNION ALL",
+      "syntax": "QUERY_A UNION ALL QUERY_B",
+      "description": "Combines results from two queries, keeping duplicates. Queries must return compatible types.",
+      "example": "MATCH (n:Person) RETURN n UNION ALL MATCH (m:Person) RETURN m;"
+    },
+    {
+      "keyword": "USE INDEX",
+      "syntax": "USE INDEX IndexName",
+      "description": "Query hint that suggests using a specific index. Optimizer may ignore if inappropriate. Optional - queries work without hints.",
+      "example": "MATCH (p:Person) USE INDEX NameIndex WHERE p.LastName = \"Smith\" RETURN p;",
+      "notes": "HyperQL philosophy: Trust the optimizer. Use hints only for performance tuning after profiling with EXPLAIN."
+    }
+  ],
+
+  "query_parameters": {
+    "description": "HyperQL supports parameterized queries for security, performance, and query plan caching.",
+    "syntax": {
+      "declaration": "$parameter_name",
+      "description": "Parameters use $ prefix followed by identifier. Case-sensitive."
+    },
+    "type_binding": {
+      "method": "Implicit from first use",
+      "description": "Parameter types are inferred from context on first use. Subsequent uses must match the inferred type.",
+      "example": "MATCH (p:Person { age: $age }) -- $age inferred as Int"
+    },
+    "usage_contexts": [
+      {
+        "context": "Property matching",
+        "example": "MATCH (p:Person { name: $name, age: $age })"
+      },
+      {
+        "context": "WHERE clauses",
+        "example": "WHERE p.salary > $min_salary"
+      },
+      {
+        "context": "SET operations",
+        "example": "SET p.status = $new_status"
+      },
+      {
+        "context": "Edge creation",
+        "example": "CREATE EDGE m:Marriage { date: $wedding_date, husband => $h, wife => $w }"
+      },
+      {
+        "context": "Collections",
+        "example": "WHERE p.id IN $id_list"
+      },
+      {
+        "context": "LIMIT/SKIP",
+        "example": "LIMIT $page_size SKIP $offset"
+      }
+    ],
+    "query_preparation": {
+      "support": "Queries with parameters can be prepared and cached",
+      "benefits": [
+        "Query plan reuse across executions",
+        "Reduced parsing overhead",
+        "SQL injection prevention"
+      ],
+      "syntax": "PREPARE stmt AS MATCH (p:Person { id: $id }) RETURN p;",
+      "execution": "EXECUTE stmt WITH { id: \"123e4567-e89b-12d3-a456-426614174000\" };"
+    },
+    "type_safety": {
+      "validation": "Parameters are type-checked before execution",
+      "error": "[2025] Parameter type mismatch",
+      "example_error": "Parameter $age expects Int, received String \"25\""
+    },
+    "null_handling": {
+      "behavior": "Null parameter values are allowed for nullable fields",
+      "example": "MATCH (p:Person { middle_name: $middle }) -- $middle can be null"
+    }
+  },
+
+  "system_management": {
+    "introspection": [
+      { "keyword": "SHOW NODE TYPES" },
+      { "keyword": "SHOW EDGE TYPES" },
+      { "keyword": "SHOW FIELDS" },
+      { "keyword": "SHOW ROLES" },
+      { "keyword": "SHOW SCHEMA" },
+      {
+        "keyword": "EXPLAIN",
+        "syntax": "EXPLAIN [VERBOSE | JSON] query",
+        "description": "Shows query execution plan without running the query",
+        "modes": {
+          "default": {
+            "output": "Human-readable text format showing plan tree",
+            "includes": ["Operators", "Estimated cost", "Index usage"]
+          },
+          "verbose": {
+            "syntax": "EXPLAIN VERBOSE query",
+            "output": "Detailed plan with additional statistics",
+            "includes": ["Estimated row counts", "Memory estimates", "Join strategies", "Filter selectivity"]
+          },
+          "json": {
+            "syntax": "EXPLAIN JSON query",
+            "output": "Machine-readable JSON format for tooling integration",
+            "structure": {
+              "plan": "Nested operator tree",
+              "costs": "Estimated costs per operator",
+              "warnings": "Performance warnings array"
+            }
+          }
+        },
+        "example": "EXPLAIN VERBOSE MATCH (p:Person) WHERE p.age > 30 RETURN p;"
+      },
+      {
+        "keyword": "ANALYZE",
+        "syntax": "ANALYZE [VERBOSE | JSON] query",
+        "description": "Executes query and shows actual execution statistics alongside plan",
+        "modes": {
+          "default": {
+            "output": "Plan with actual row counts and timing"
+          },
+          "verbose": {
+            "output": "Detailed execution statistics including cache hits, I/O operations",
+            "includes": ["Actual vs estimated rows", "Execution time per operator", "Memory usage", "Index effectiveness"]
+          },
+          "json": {
+            "output": "Machine-readable execution profile"
+          }
+        }
+      },
+      {
+        "keyword": "VALIDATE CONSTRAINT",
+        "syntax": "VALIDATE CONSTRAINT Type.ConstraintName WITH { field: value };",
+        "description": "Dry-run validation of a constraint against hypothetical data.",
+        "returns": "{ valid: Bool, violations: List<String> }"
+      },
+      {
+        "keyword": "EXPLAIN CONSTRAINT",
+        "syntax": "EXPLAIN CONSTRAINT Type.ConstraintName;",
+        "description": "Returns the AST and execution plan for a constraint."
+      },
+      {
+        "keyword": "ANALYZE CONSTRAINT",
+        "syntax": "ANALYZE CONSTRAINT Type [constraint_name];",
+        "description": "Returns performance statistics (execution count, avg time, failure rate) for constraints."
+      }
+    ],
+    "configuration": {
+      "constraint_limits": {
+        "description": "Operational limits to prevent abuse and ensure stability.",
+        "defaults": {
+          "max_constraints_per_node": 50,
+          "max_expression_depth": 15,
+          "constraint_timeout_ms": 100
+        },
+        "modification": "SET CONSTRAINT LIMIT key = value;"
+      }
+    }
+  }
+}

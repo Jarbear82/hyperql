@@ -1,0 +1,295 @@
+{
+  "hyperql_version": "0.16",
+  "part": "3_transactions_and_query_planning",
+
+  "transaction_management": {
+    "description": "HyperQL supports ACID transactions with configurable isolation levels. Single statements are automatically wrapped in implicit transactions.",
+
+    "error_model": {
+      "philosophy": "Strict/Abort. Any error aborts the entire transaction immediately.",
+      "behavior": "No partial commits. If any statement in a transaction fails, all previous operations in that transaction are rolled back.",
+      "rationale": "Ensures data consistency and predictable application state.",
+      "constraint_violations": {
+        "timing": "Constraints are validated in order: Node -> Role -> Edge",
+        "atomicity": "All constraints for a level must pass before proceeding to next level",
+        "error_codes": "[3011] Node constraint, [3012] Role constraint, [3013] Edge constraint",
+        "rollback": "Any constraint violation triggers full transaction rollback"
+      }
+    },
+
+    "isolation_levels": {
+      "default": "READ_COMMITTED",
+      "levels": [
+        { "level": "READ_UNCOMMITTED", "description": "Allows dirty reads." },
+        {
+          "level": "READ_COMMITTED",
+          "description": "Only reads committed data."
+        },
+        {
+          "level": "REPEATABLE_READ",
+          "description": "Consistent reads within transaction."
+        },
+        { "level": "SERIALIZABLE", "description": "Strictest isolation." }
+      ]
+    },
+
+    "keywords": [
+      { "keyword": "SET ISOLATION LEVEL", "syntax": "SET ISOLATION LEVEL ..." },
+      { "keyword": "BEGIN", "syntax": "BEGIN [ISOLATION LEVEL ...] [ON ERROR CONTINUE];" },
+      { "keyword": "COMMIT", "syntax": "COMMIT;" },
+      { "keyword": "ROLLBACK", "syntax": "ROLLBACK;" },
+      { "keyword": "BATCH", "syntax": "BATCH { statements... } RETURN { ... };" }
+    ],
+
+    "concurrency_behavior": {
+      "write_conflicts": {
+        "resolution": "Last-commit-wins with optimistic locking",
+        "error": "Transaction rolled back due to concurrent modification conflict [5002]"
+      },
+      "deadlock_detection": {
+        "resolution": "One transaction is chosen as victim and rolled back [5001]"
+      }
+    },
+
+    "batch_processing": {
+      "batch_statement": {
+        "keyword": "BATCH",
+        "description": "Atomic block that executes all statements and returns success/failure summary. Does NOT automatically continue on error - rolls back entire block on first failure unless combined with ON ERROR CONTINUE mode.",
+        "syntax": "BATCH { statements... } RETURN { success: Int, failed: Int, errors: List<Error> };",
+        "semantics": "All-or-nothing by default. Use with BEGIN ON ERROR CONTINUE for partial success.",
+        "example": "BEGIN ON ERROR CONTINUE;\nBATCH {\n  CREATE NODE p1:Person { Name: \"Alice\" };\n  CREATE NODE p2:Person { Name: \"Bob\" };\n}\nRETURN { success: 1, failed: 1, errors: [...] };\nCOMMIT;"
+      },
+      "error_mode": {
+        "keyword": "ON ERROR CONTINUE",
+        "description": "Transaction mode that allows execution to continue after statement failures. Must be set at BEGIN. Can be used with or without BATCH.",
+        "syntax": "BEGIN [ISOLATION LEVEL ...] ON ERROR CONTINUE;",
+        "scope": "Entire transaction until COMMIT/ROLLBACK",
+        "example": "BEGIN ON ERROR CONTINUE;\n  CREATE NODE p1:Person { Name: \"Alice\" };\n  CREATE NODE p2:Person { invalid }; -- Fails but continues\n  CREATE NODE p3:Person { Name: \"Carol\" };\nCOMMIT; -- Commits p1 and p3"
+      }
+    }
+  },
+
+  "constraint_performance": {
+    "description": "Performance characteristics of the three-level constraint system.",
+
+    "write_operations": {
+      "validation_timing": "Write-time only (CREATE, UPDATE, ALTER)",
+      "overhead": "Microseconds per constraint for simple expressions",
+      "unique_constraints": "@unique decorator requires index lookups (milliseconds)",
+      "bulk_operations": "Constraint checking amortized across transaction - use BEGIN/COMMIT for batching",
+      "evaluation_order": "Node -> Role -> Edge constraints evaluated in sequence"
+    },
+
+    "read_operations": {
+      "validation_timing": "Zero - constraints are never re-evaluated during reads",
+      "guarantee": "Data integrity ensured by write-time validation",
+      "performance_impact": "None - reads operate on pre-validated data",
+      "benefit": "Eliminates need for application-level validation on reads"
+    },
+
+    "computed_properties": {
+      "policy": "Constraints on @computed fields are not supported in v0.16",
+      "rationale": "Computed properties are calculated at read-time; enforcing constraints would add read overhead",
+      "workaround": "Use node/edge constraints to validate relationships that determine computed values",
+      "performance_warnings": {
+        "static_analysis": {
+          "mechanism": "Query Planner detects O(n*m) operations.",
+          "trigger": "Using @computed(TRAVERSE) properties in WHERE clauses without other selective predicates.",
+          "behavior": "Emits warning [WARN-PERF-001] if estimated row scan > 1000.",
+          "message": "Computed property in WHERE clause will execute subquery for each scanned row. Consider using @materialized or adding index-backed predicates."
+        }
+      }
+    },
+
+    "indirect_benefits": {
+      "indexes": "@unique decorator creates indexes that improve read performance",
+      "data_quality": "Guaranteed valid data reduces defensive programming overhead",
+      "query_optimization": "Constraint guarantees enable query planner optimizations"
+    }
+  },
+
+  "performance_model": {
+    "description": "Detailed performance characteristics of HyperQL operations",
+
+    "index_usage": {
+      "automatic_selection": "Query planner automatically uses indexes when available and beneficial",
+      "conditions_for_use": [
+        "Equality predicates (WHERE field = value) - Uses index if available",
+        "Range predicates (WHERE field > value) - B-tree indexes only",
+        "IN clauses (WHERE field IN [values]) - Index lookup per value",
+        "Composite index prefix (WHERE LastName = 'X' AND FirstName = 'Y') - Uses composite index on (LastName, FirstName)"
+      ],
+      "not_used_when": [
+        "No index exists on filtered field",
+        "Predicate uses function (WHERE UPPER(name) = 'X') - Bypasses index",
+        "Low selectivity (WHERE gender = 'M' on 50/50 split) - Full scan may be faster",
+        "OR predicates across different fields (WHERE age > 30 OR name = 'X')"
+      ],
+      "verification": "Use EXPLAIN to confirm index usage"
+    },
+
+    "computed_property_performance": {
+      "logic": {
+        "type": "@computed(expression)",
+        "read_cost": "Per-row evaluation, microseconds",
+        "write_cost": "None",
+        "example": "full_name: String @computed(this.first + \" \" + this.last)"
+      },
+      "traverse_default": {
+        "type": "@computed(TRAVERSE)",
+        "read_cost": "Subquery execution per row (first access), cached thereafter",
+        "write_cost": "None",
+        "cache_duration": "Single query execution",
+        "example": "friend_count: Int @computed(TRAVERSE) { MATCH (this)-[:Friend]-(f) RETURN COUNT(f) }"
+      },
+      "traverse_materialized": {
+        "type": "@computed(TRAVERSE) @materialized",
+        "read_cost": "O(1) property access",
+        "write_cost": "Recomputation on writes affecting traversal pattern",
+        "storage_cost": "Cached value stored per node",
+        "update_triggers": "Any CREATE/UPDATE/DELETE of edges in traversal pattern",
+        "example": "friend_count: Int @materialized @computed(TRAVERSE) { ... }"
+      },
+      "traverse_volatile": {
+        "type": "@computed(TRAVERSE) @volatile",
+        "read_cost": "Full subquery execution on every access",
+        "write_cost": "None",
+        "use_case": "Reading uncommitted data within transaction (READ_UNCOMMITTED)",
+        "warning": "Very expensive - avoid in production"
+      }
+    },
+
+    "transaction_log_growth": {
+      "description": "Transaction log size grows with operation count and data volume",
+      "factors": [
+        "Number of CREATE/UPDATE/DELETE operations",
+        "Size of modified data (large strings, lists)",
+        "Transaction duration (longer = more log entries)"
+      ],
+      "monitoring": "SHOW TRANSACTION LOG SIZE;",
+      "mitigation": [
+        "Commit frequently (batch 100-1000 ops)",
+        "Avoid updating large text fields in loops",
+        "Use BATCH with ON ERROR CONTINUE for bulk loads"
+      ]
+    },
+
+    "bulk_load_optimization": {
+      "small_batch": {
+        "size": "< 100 operations",
+        "approach": "Single BEGIN...COMMIT transaction",
+        "performance": "Optimal for this size"
+      },
+      "medium_batch": {
+        "size": "100-10,000 operations",
+        "approach": "Batched transactions (1000 ops per commit)",
+        "example": "FOR each 1000 records: BEGIN; CREATE...; COMMIT;",
+        "performance": "Balances throughput and lock duration"
+      },
+      "large_batch": {
+        "size": "> 10,000 operations",
+        "approach": "Parallel batches with partitioned data",
+        "example": "-- Split data into partitions, run concurrent transactions",
+        "performance": "Consider bulk import tool (future feature)"
+      },
+      "recommendations": [
+        "Disable indexes during bulk load, rebuild after (future feature)",
+        "Use ON ERROR CONTINUE to skip failures without rollback",
+        "Sort data by indexed fields before insert for better locality",
+        "Monitor transaction log size and memory usage"
+      ]
+    }
+  },
+
+  "bulk_operations": {
+    "description": "For inserting or updating large datasets efficiently",
+    "transaction_batching": {
+      "description": "Group multiple operations into single transaction for better performance",
+      "benefits": [
+        "Reduced transaction overhead (single commit vs thousands)",
+        "Atomic batch operations (all-or-nothing)",
+        "Better lock utilization"
+      ],
+      "example": "BEGIN;\n  CREATE NODE p1:Person { Name: \"Alice\", Age: 30 };\n  CREATE NODE p2:Person { Name: \"Bob\", Age: 25 };\n  CREATE NODE p3:Person { Name: \"Carol\", Age: 35 };\n  -- ... thousands more ...\nCOMMIT;",
+      "best_practices": [
+        "Batch 100-1000 operations per transaction",
+        "Too small: overhead from multiple commits",
+        "Too large: long-running transactions block other operations",
+        "Monitor transaction log size"
+      ]
+    },
+    "parameterized_batching": {
+      "description": "Use query parameters for repeated operations",
+      "example": "-- Application code pseudo-example:\nBEGIN;\nFOR EACH row IN csv_data:\n  CREATE NODE p:Person { Name: $name, Age: $age, Email: $email }\n  WITH PARAMETERS { name: row.name, age: row.age, email: row.email };\nCOMMIT;",
+      "notes": "Parameterized queries allow query plan caching and better performance"
+    },
+    "csv_json_extensions": {
+      "status": "Planned for future versions",
+      "rationale": "CSV/JSON import could be built-in functions or extensions. Currently evaluating whether these should be core features or plugins.",
+      "workaround": "Use application-level batch processing with BEGIN/COMMIT transactions",
+      "potential_syntax": "LOAD CSV FROM 'file.csv' AS row\nCREATE NODE p:Person { Name: row.name, Age: TO_INT(row.age) };"
+    }
+  },
+
+  "query_planning": {
+    "description": "HyperQL uses a cost-based optimizer.",
+
+    "variable_scope": {
+      "model": "Explicit Reset (Cypher-style)",
+      "rules": [
+        "WITH is a hard barrier: variables not explicitly listed are dropped from scope.",
+        "Shadowing is FORBIDDEN: Cannot redefine a variable already in scope."
+      ]
+    },
+
+    "index_selection": {
+      "selection_criteria": [
+        {
+          "criterion": "Selectivity",
+          "description": "High-cardinality preferred."
+        },
+        {
+          "criterion": "Query predicate match",
+          "description": "Index must match WHERE clause types."
+        },
+        {
+          "criterion": "Composite index prefix",
+          "description": "Must use leading fields."
+        }
+      ]
+    },
+
+    "join_strategies": {
+      "strategies": [
+        { "name": "Nested Loop Join" },
+        {
+          "name": "Index Nested Loop",
+          "preferred": "Default for role-based edge traversal"
+        },
+        { "name": "Hash Join" }
+      ]
+    },
+
+    "path_query_optimization": {
+      "description": "Special optimizations for MATCH PATH queries",
+      "techniques": [
+        { "name": "Bidirectional search" },
+        {
+          "name": "Cost-based path selection",
+          "description": "Algorithm selected based on WEIGHT BY aggregation (Sum=A*, Max=Bottleneck, Min=Widest)."
+        }
+      ]
+    },
+
+    "query_hints": {
+      "available_hints": [
+        { "hint": "USE INDEX", "syntax": "USE INDEX IndexName" },
+        { "hint": "NO INDEX", "syntax": "NO INDEX" }
+      ]
+    },
+
+    "statistics_and_maintenance": {
+      "automatic": "Statistics auto-updated on significant data changes."
+    }
+  }
+}

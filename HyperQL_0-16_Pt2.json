@@ -1,0 +1,286 @@
+{
+  "hyperql_version": "0.16",
+  "part": "2_type_system_and_expressions",
+
+  "type_coercion": {
+    "description": "HyperQL uses strict typing with explicit coercion. Implicit type coercion is ONLY allowed for numeric widening (Int -> Float).",
+    "automatic_coercion": [
+      {
+        "from": "Int",
+        "to": "Float",
+        "context": "Arithmetic operations, function arguments"
+      }
+    ],
+    "explicit_casting": {
+      "functions": [
+        { "name": "TO_STRING", "signature": "TO_STRING(value: Any) -> String" },
+        { "name": "TO_INT", "signature": "TO_INT(value: String|Float) -> Int" },
+        {
+          "name": "TO_FLOAT",
+          "signature": "TO_FLOAT(value: String|Int) -> Float"
+        }
+      ]
+    },
+    "null_handling": {
+      "description": "Null propagation follows SQL semantics.",
+      "rules": [
+        "null + anything = null",
+        "null == null = null (use IS NULL)",
+        "MERGE Semantics: Null values in a MERGE pattern act as wildcards (match any existing value). Existing values are preserved ('kept') when matched against a null, unless explicitly overwritten to null."
+      ],
+      "safe_operators": ["IS NULL", "COALESCE"]
+    }
+  },
+
+  "expression_language": {
+    "description": "Standard Expression Language for @computed properties and query expressions.",
+    "evaluation_semantics": {
+      "computed_properties": {
+        "logic": "Eagerly evaluated per-row.",
+        "traverse": {
+          "evaluation": "Lazy evaluation with Per-Row Memoization",
+          "cache_scope": "Single query execution",
+          "cache_lifetime": "Query start to final RETURN",
+          "cache_behavior": {
+            "multiple_references": "Computed once per row, reused within same query",
+            "example": "RETURN p.friend_count, p.friend_count * 2 -- Computed once, used twice",
+            "with_boundaries": "Cache survives WITH clauses if variable is passed through",
+            "example_with": "MATCH (p:Person) WITH p, p.friend_count AS fc RETURN fc -- Computed before WITH",
+            "optional_match": "Cache cleared for null-binding rows from OPTIONAL MATCH",
+            "example_optional": "OPTIONAL MATCH (p)-[:Friend]-(f) RETURN p.friend_count -- May execute twice if p has no friends",
+            "subqueries": "Each subquery execution has independent cache",
+            "transaction_boundaries": "Cache does NOT survive across separate query executions"
+          },
+          "opt_out": "Use @volatile to disable caching and force re-execution on every access"
+        }
+      }
+    },
+    "operators": {
+      "precedence": [
+        {
+          "level": 1,
+          "operators": [".", "this.field"],
+          "desc": "Property access"
+        },
+        { "level": 2, "operators": ["FUNCTION()"], "desc": "Function calls" },
+        { "level": 3, "operators": ["!", "-"], "desc": "Unary" },
+        {
+          "level": 3.5,
+          "operators": ["?.", "??"],
+          "desc": "Null coalescing and safe navigation"
+        },
+        { "level": 4, "operators": ["*", "/", "%"], "desc": "Multiplicative" },
+        { "level": 5, "operators": ["+", "-"], "desc": "Additive" },
+        {
+          "level": 6,
+          "operators": ["<", ">", "<=", ">="],
+          "desc": "Comparison"
+        },
+        { "level": 7, "operators": ["==", "!="], "desc": "Equality" },
+        { "level": 8, "operators": ["&&"], "desc": "Logical AND" },
+        { "level": 9, "operators": ["||"], "desc": "Logical OR" }
+      ]
+    },
+    "null_safe_operators": {
+      "null_coalescing": {
+        "operator": "??",
+        "description": "Returns right operand if left is null, otherwise returns left",
+        "signature": "value1 ?? value2",
+        "example": "p.nickname ?? p.first_name",
+        "chaining": "Can be chained: p.nickname ?? p.preferred_name ?? p.first_name"
+      },
+      "safe_navigation": {
+        "operator": "?.",
+        "description": "Returns null if left operand is null, otherwise accesses property",
+        "signature": "value?.property",
+        "example": "p.address?.city",
+        "note": "Primarily useful for nullable Struct fields",
+        "chaining": "Can be chained: person.address?.city?.zipcode"
+      },
+      "combined_usage": {
+        "example": "RETURN p.address?.city ?? \"Unknown\""
+      }
+    },
+    "literals": [
+      { "type": "String", "example": "\"hello world\"" },
+      { "type": "Int", "example": "123" },
+      { "type": "Float", "example": "3.14" },
+      { "type": "Bool", "example": "true" },
+      { "type": "Null", "example": "null" },
+      { "type": "Decimal", "example": "99.99d" }
+    ],
+    "built_in_functions": {
+      "overloading_resolution": {
+        "description": "Some functions are overloaded with multiple signatures. Resolution follows these rules in order:",
+        "rules": [
+          {
+            "priority": 1,
+            "rule": "Exact type match",
+            "example": "CONTAINS(\"hello\", \"ell\") matches String signature"
+          },
+          {
+            "priority": 2,
+            "rule": "Implicit numeric coercion (Int -> Float only)",
+            "example": "MAX(5, 3.14) coerces 5 to 5.0"
+          },
+          {
+            "priority": 3,
+            "rule": "Generic type parameter matching",
+            "example": "CONTAINS(List<Person>, person) resolves T=Person"
+          }
+        ],
+        "ambiguity": "If multiple signatures match after coercion, error [2030] Ambiguous function call",
+        "examples": [
+          {
+            "function": "CONTAINS",
+            "signatures": [
+              "CONTAINS(str: String, substr: String) -> Bool",
+              "CONTAINS(list: List<T>, value: T) -> Bool"
+            ],
+            "resolution": "Determined by first argument type"
+          },
+          {
+            "function": "MIN/MAX",
+            "signatures": [
+              "MIN(a: Int, b: Int) -> Int",
+              "MIN(a: Float, b: Float) -> Float",
+              "MIN(a: String, b: String) -> String",
+              "MIN(a: Date, b: Date) -> Date"
+            ],
+            "resolution": "Both arguments must be same type or Int coerced to Float"
+          }
+        ]
+      },
+      "string": [
+        { "name": "UPPER", "signature": "UPPER(str: String) -> String" },
+        { "name": "LOWER", "signature": "LOWER(str: String) -> String" },
+        { "name": "LEN", "signature": "LEN(str: String) -> Int" },
+        { "name": "TRIM", "signature": "TRIM(str: String) -> String" },
+        {
+          "name": "SUBSTR",
+          "signature": "SUBSTR(str: String, start: Int, len: Int) -> String"
+        },
+        {
+          "name": "CONCAT",
+          "signature": "CONCAT(str1: String, str2: String, ...) -> String"
+        },
+        {
+          "name": "CONTAINS",
+          "signature": "CONTAINS(str: String, substr: String) -> Bool"
+        },
+        {
+          "name": "STARTS_WITH",
+          "signature": "STARTS_WITH(str: String, prefix: String) -> Bool"
+        },
+        {
+          "name": "ENDS_WITH",
+          "signature": "ENDS_WITH(str: String, suffix: String) -> Bool"
+        }
+      ],
+      "math": [
+        { "name": "ABS", "signature": "ABS(num: Int|Float) -> Int|Float" },
+        { "name": "ROUND", "signature": "ROUND(num: Float) -> Int" },
+        { "name": "FLOOR", "signature": "FLOOR(num: Float) -> Int" },
+        { "name": "CEIL", "signature": "CEIL(num: Float) -> Int" },
+        { "name": "MIN", "signature": "MIN(a, b) -> Int|Float" },
+        { "name": "MAX", "signature": "MAX(a, b) -> Int|Float" }
+      ],
+      "date": [
+        { "name": "NOW", "signature": "NOW() -> Date" },
+        { "name": "YEAR", "signature": "YEAR(date: Date) -> Int" },
+        { "name": "MONTH", "signature": "MONTH(date: Date) -> Int" },
+        { "name": "DAY", "signature": "DAY(date: Date) -> Int" },
+        { "name": "DATE", "signature": "DATE(date: Date) -> String" },
+        { "name": "TIME", "signature": "TIME(date: Date) -> String" },
+        {
+          "name": "INTERVAL",
+          "signature": "INTERVAL(spec: String) -> Interval"
+        }
+      ],
+      "conversion": [
+        { "name": "TO_STRING", "signature": "TO_STRING(value: Any) -> String" },
+        { "name": "TO_INT", "signature": "TO_INT(value: String|Float) -> Int" },
+        {
+          "name": "TO_FLOAT",
+          "signature": "TO_FLOAT(value: String|Int) -> Float"
+        },
+        {
+          "name": "TO_DECIMAL",
+          "signature": "TO_DECIMAL(value: Int|Float|String, precision: Int, scale: Int) -> Decimal"
+        }
+      ],
+      "utility": [
+        { "name": "COALESCE", "signature": "COALESCE(val1, val2, ...) -> Any" },
+        { "name": "NULLIF", "signature": "NULLIF(val1, val2) -> Any?" },
+        { "name": "UUID", "signature": "UUID() -> UUID" }
+      ],
+      "collection": [
+        {
+          "name": "CONTAINS",
+          "signature": "CONTAINS(list: List<T>, value: T) -> Bool"
+        },
+        {
+          "name": "LIST_INDEX",
+          "signature": "LIST_INDEX(list: List<T>, value: T) -> Int?"
+        },
+        {
+          "name": "LIST_SLICE",
+          "signature": "LIST_SLICE(list: List<T>, start: Int, end: Int) -> List<T>"
+        }
+      ],
+      "conditional": [
+        {
+          "name": "IF",
+          "signature": "IF(condition: Bool, true_value: Any, false_value: Any) -> Any"
+        },
+        {
+          "name": "CASE",
+          "signature": "CASE WHEN condition THEN value ... END"
+        },
+        { "name": "MATCH", "signature": "MATCH expr { pattern => value, ... }" }
+      ]
+    }
+  },
+
+  "constraint_expression_language": {
+    "description": "Constraints use the standard HyperQL expression language with specific context variables.",
+
+    "node_constraints": {
+      "syntax": "{ constraints: [boolean_expression, ...] }",
+      "available_context": {
+        "this": "Reference to the node instance being validated",
+        "field_names": "Direct reference to all fields defined in the node"
+      },
+      "example": "{ constraints: [this.age >= 0, age <= 150, name != \"\"] }",
+      "notes": "'this.age' and 'age' are equivalent"
+    },
+
+    "role_constraints": {
+      "syntax": "{ constraints: [boolean_expression, ...] }",
+      "available_context": {
+        "Type.field": "Reference to fields of allowed node types",
+        "this.field": "Shorthand when single type allowed"
+      },
+      "example": "{ constraints: [Person.gender == Gender.FEMALE, Person.age >= 18] }",
+      "notes": "Multiple ALLOWS types require Type.field notation to disambiguate"
+    },
+
+    "edge_constraints": {
+      "syntax": "{ constraints: [boolean_expression, ...] }",
+      "available_context": {
+        "role_name": "Direct reference to nodes bound to roles",
+        "role_name.field": "Access fields of role-bound nodes",
+        "field_names": "Direct reference to edge fields",
+        "this": "Reference to the edge instance"
+      },
+      "example": "{ constraints: [husband != wife, husband.age >= 18, date <= NOW()] }",
+      "notes": "Can traverse from roles to their properties for validation"
+    },
+
+    "constraint_evaluation": {
+      "implicit_and": "Array syntax constraints are implicitly ANDed together",
+      "short_circuit": "Evaluation stops at first false constraint",
+      "named_constraints": "Object syntax evaluates all constraints and reports all failures"
+    }
+  }
+}
