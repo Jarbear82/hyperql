@@ -39,4 +39,3 @@ target/
 *.target.mk
 
 # DO NOT ignore the wasm file needed for the Zed extension
-!/grammars/hyperql.wasm

@@ -852,167 +852,72 @@
       ]
     },
     "role_definition": {
-      "type": "CHOICE",
+      "type": "SEQ",
       "members": [
         {
-          "type": "SEQ",
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "identifier"
+          }
+        },
+        {
+          "type": "CHOICE",
           "members": [
             {
-              "type": "FIELD",
-              "name": "name",
-              "content": {
-                "type": "SYMBOL",
-                "name": "identifier"
-              }
-            },
-            {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": "?"
-                },
-                {
-                  "type": "BLANK"
-                }
-              ]
-            },
-            {
               "type": "STRING",
-              "value": ":"
+              "value": "?"
             },
             {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "FIELD",
-                  "name": "direction",
-                  "content": {
-                    "type": "CHOICE",
-                    "members": [
-                      {
-                        "type": "STRING",
-                        "value": "<-"
-                      },
-                      {
-                        "type": "STRING",
-                        "value": "->"
-                      },
-                      {
-                        "type": "STRING",
-                        "value": "<->"
-                      }
-                    ]
-                  }
-                },
-                {
-                  "type": "BLANK"
-                }
-              ]
-            },
-            {
-              "type": "FIELD",
-              "name": "role_type",
-              "content": {
-                "type": "SYMBOL",
-                "name": "identifier"
-              }
-            },
-            {
-              "type": "FIELD",
-              "name": "cardinality",
-              "content": {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "STRING",
-                    "value": "(ONE)"
-                  },
-                  {
-                    "type": "STRING",
-                    "value": "(MANY)"
-                  }
-                ]
-              }
-            },
-            {
-              "type": "REPEAT",
-              "content": {
-                "type": "SYMBOL",
-                "name": "decorator"
-              }
+              "type": "BLANK"
             }
           ]
         },
         {
-          "type": "SEQ",
-          "members": [
-            {
-              "type": "FIELD",
-              "name": "name",
-              "content": {
-                "type": "SYMBOL",
-                "name": "identifier"
+          "type": "FIELD",
+          "name": "direction",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "<-"
+              },
+              {
+                "type": "STRING",
+                "value": "->"
+              },
+              {
+                "type": "STRING",
+                "value": "<->"
               }
-            },
-            {
-              "type": "CHOICE",
-              "members": [
-                {
-                  "type": "STRING",
-                  "value": "?"
-                },
-                {
-                  "type": "BLANK"
-                }
-              ]
-            },
-            {
-              "type": "FIELD",
-              "name": "direction",
-              "content": {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "STRING",
-                    "value": "<-"
-                  },
-                  {
-                    "type": "STRING",
-                    "value": "->"
-                  },
-                  {
-                    "type": "STRING",
-                    "value": "<->"
-                  }
-                ]
+            ]
+          }
+        },
+        {
+          "type": "FIELD",
+          "name": "cardinality",
+          "content": {
+            "type": "CHOICE",
+            "members": [
+              {
+                "type": "STRING",
+                "value": "(ONE)"
+              },
+              {
+                "type": "STRING",
+                "value": "(MANY)"
               }
-            },
-            {
-              "type": "FIELD",
-              "name": "cardinality",
-              "content": {
-                "type": "CHOICE",
-                "members": [
-                  {
-                    "type": "STRING",
-                    "value": "(ONE)"
-                  },
-                  {
-                    "type": "STRING",
-                    "value": "(MANY)"
-                  }
-                ]
-              }
-            },
-            {
-              "type": "REPEAT",
-              "content": {
-                "type": "SYMBOL",
-                "name": "decorator"
-              }
-            }
-          ]
+            ]
+          }
+        },
+        {
+          "type": "REPEAT",
+          "content": {
+            "type": "SYMBOL",
+            "name": "decorator"
+          }
         }
       ]
     },
@@ -4168,16 +4073,24 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "identifier"
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "identifier"
+          }
         },
         {
           "type": "STRING",
           "value": "="
         },
         {
-          "type": "SYMBOL",
-          "name": "_expression"
+          "type": "FIELD",
+          "name": "value",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_expression"
+          }
         }
       ]
     },
@@ -4206,16 +4119,24 @@
       "type": "SEQ",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "identifier"
+          "type": "FIELD",
+          "name": "name",
+          "content": {
+            "type": "SYMBOL",
+            "name": "identifier"
+          }
         },
         {
           "type": "STRING",
           "value": "=>"
         },
         {
-          "type": "SYMBOL",
-          "name": "_expression"
+          "type": "FIELD",
+          "name": "value",
+          "content": {
+            "type": "SYMBOL",
+            "name": "_expression"
+          }
         }
       ]
     },
@@ -4602,16 +4523,43 @@
       "type": "CHOICE",
       "members": [
         {
-          "type": "STRING",
-          "value": "UNBOUNDED PRECEDING"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "UNBOUNDED"
+            },
+            {
+              "type": "STRING",
+              "value": "PRECEDING"
+            }
+          ]
         },
         {
-          "type": "STRING",
-          "value": "UNBOUNDED FOLLOWING"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "UNBOUNDED"
+            },
+            {
+              "type": "STRING",
+              "value": "FOLLOWING"
+            }
+          ]
         },
         {
-          "type": "STRING",
-          "value": "CURRENT ROW"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "STRING",
+              "value": "CURRENT"
+            },
+            {
+              "type": "STRING",
+              "value": "ROW"
+            }
+          ]
         },
         {
           "type": "SEQ",

@@ -24,7 +24,7 @@ DEFINE FIELD created_at: Date @readonly;
 DEFINE FIELD updated_at: Date;
 DEFINE FIELD created_by: UUID;
 DEFINE FIELD updated_by: UUID;
-DEFINE FIELD tags: List<String>; // @optional removed (use optional syntax on usage if needed)
+DEFINE FIELD tags: List<String>;
 DEFINE FIELD metadata: String; // Map not supported in 0.16; use JSON String or Struct
 DEFINE FIELD position: Vector3;
 
@@ -42,12 +42,7 @@ DEFINE FIELD started_at: Date;
 
 // 1.3 Global Role Definitions with Constraints
 // Roles define interfaces for WHO can participate in an edge
-DEFINE ROLE member_role ALLOWS [Player] {
-    constraints: {
-        is_active: Player.status == PlayerStatus.ACTIVE,
-        has_username: Player.username != ""
-    }
-};
+DEFINE ROLE member_role ALLOWS [Player{ this.status == PlayerStatus.ACTIVE, this.username != ""}];
 
 DEFINE ROLE guild_role ALLOWS [Guild];
 
@@ -113,8 +108,8 @@ DEFINE NODE Quest EXTENDS [Entity] {
 DEFINE EDGE Membership {
     joined_at,
     rank,
-    member: <- member_role (ONE),
-    guild: -> guild_role (ONE)
+    member <- (ONE),
+    guild -> (ONE)
 } {
     constraints: {
         valid_join_date: joined_at <= NOW(),
@@ -124,8 +119,8 @@ DEFINE EDGE Membership {
 
 DEFINE EDGE Friendship {
     created_at,
-    friend_a: <- friend_role (ONE),
-    friend_b: -> friend_role (ONE)
+    friend_a <- friend_role (ONE),
+    friend_b -> friend_role (ONE)
 } {
     constraints: {
         different_people: friend_a != friend_b,

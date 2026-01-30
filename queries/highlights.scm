@@ -43,6 +43,7 @@
   "AS"
   "MATCH"
   "OPTIONAL"
+  "ON"
   "CROSS_TYPE"
   "WHERE"
   "WITH"
@@ -90,10 +91,20 @@
 (constraint_block "constraints" @keyword)
 
 ; ==========================================
+; Decorators (Fixed)
+; ==========================================
+
+; Both the symbol and the identifier are now punctuation.special
+; This forces them to be the same color (Purple in most themes)
+(decorator "@" @punctuation.special)
+(decorator (identifier) @punctuation.special)
+
+; ==========================================
 ; Types
 ; ==========================================
 
-; Built-in types found in _data_type
+; CHANGED: Mapped built-ins to @support.type or @constant.builtin
+; This usually forces a different color than standard types/properties.
 [
   "String"
   "Int"
@@ -110,9 +121,9 @@
   "List"
   "Enum"
   "Struct"
-] @type.builtin
+] @constant.builtin
 
-; Generic Type names (User defined or complex)
+; Generic Type names (User defined)
 (define_node name: (identifier) @type)
 (define_edge name: (identifier) @type)
 (define_enum name: (identifier) @type)
@@ -136,14 +147,57 @@
 ; Functions
 ; ==========================================
 
-; Built-in functions specified in HyperQL 0.16 spec
+; Built-in functions
+; (Placed higher up to ensure DATE() is seen as a function, not a constant)
 (function_call
   name: (identifier) @function.builtin
   (#match? @function.builtin "^(COUNT|SUM|AVG|MIN|MAX|COLLECT|STRING_AGG|COALESCE|NULLIF|TO_STRING|TO_INT|TO_FLOAT|TO_DECIMAL|UPPER|LOWER|LEN|TRIM|SUBSTR|CONCAT|CONTAINS|STARTS_WITH|ENDS_WITH|ABS|ROUND|FLOOR|CEIL|NOW|YEAR|MONTH|DAY|DATE|TIME|INTERVAL|LIST_INDEX|LIST_SLICE|SHORTEST_PATH|ALL_SHORTEST_PATHS|K_SHORTEST_PATHS|PAGERANK|BETWEENNESS_CENTRALITY|DEGREE_CENTRALITY|CONNECTED_COMPONENTS|LOUVAIN|TRIANGLE_COUNT|FIND_CYCLES|JACCARD_SIMILARITY|COSINE_SIMILARITY|ROW_NUMBER|RANK|DENSE_RANK|NTILE|LAG|LEAD|FIRST_VALUE|LAST_VALUE)$")
 )
 
-; Generic function calls
 (function_call name: (identifier) @function)
+
+; ==========================================
+; Properties & Fields
+; ==========================================
+
+; --- DEFINITIONS ---
+
+; Field Definitions: DEFINE FIELD name: String
+(define_field name: (identifier) @property)
+(field_definition name: (identifier) @property)
+(define_struct field: (identifier) @property)
+(define_trait field: (identifier) @property)
+
+; Role Definitions: DEFINE ROLE name ALLOWS...
+(define_role name: (identifier) @variable.parameter)
+
+; Role Definitions inside Schema: husband <- (ONE)
+(role_definition name: (identifier) @variable.parameter)
+
+; Bare identifiers in schema (e.g. firstName,) default to property
+; (We can't distinguish roles from fields here without the operators, so blue is safe)
+(schema_body (identifier) @property)
+
+
+; --- USAGE / ASSIGNMENT ---
+
+; Property Access: user.name
+(property_access property: (identifier) @property)
+
+; Field Assignment: name = "Value"
+(property_assignment name: (identifier) @property)
+(property_assignment value: (identifier) @variable)
+
+; Role Binding: husband => doug
+; (This makes the key "husband" Orange/Italic to match the => operator intent)
+(role_binding name: (identifier) @variable.parameter)
+(role_binding value: (identifier) @variable)
+
+; Inferred identifiers (e.g. .MALE)
+(inferred_identifier (identifier) @constant)
+
+; Named constraints inside blocks
+(named_constraint (identifier) @property)
 
 ; ==========================================
 ; Variables
@@ -167,38 +221,6 @@
 ((identifier) @variable.builtin (#eq? @variable.builtin "this"))
 
 ; ==========================================
-; Properties & Fields
-; ==========================================
-
-; Definition contexts
-(define_field name: (identifier) @property)
-(field_definition name: (identifier) @property)
-(define_struct field: (identifier) @property)
-(define_trait field: (identifier) @property)
-
-; Property access
-(property_access property: (identifier) @property)
-(property_assignment name: (identifier) @property)
-(property_assignment value: (identifier) @variable)
-(named_constraint (identifier) @property)
-
-; Inferred identifiers (e.g. .MALE)
-(inferred_identifier (identifier) @property)
-
-; Roles (semantically properties/edges)
-(define_role name: (identifier) @variable.parameter) ; Using variable.parameter to distinguish definition
-(role_definition name: (identifier) @property)
-(role_binding name: (identifier) @property)
-(role_binding value: (identifier) @variable)
-
-; ==========================================
-; Decorators / Attributes
-; ==========================================
-
-(decorator "@" @punctuation.special)
-(decorator (identifier) @attribute)
-
-; ==========================================
 ; Literals & Constants
 ; ==========================================
 
@@ -219,18 +241,16 @@
 ; Enum values definition
 (define_enum value: (identifier) @constant)
 
-; ALL_CAPS identifiers as constants
+; ALL_CAPS identifiers as constants (MOVED TO BOTTOM)
+; This now acts as a fallback. It will only color something Purple
+; if it wasn't already caught as a Function, Type, or Property.
 ((identifier) @constant (#match? @constant "^[A-Z][A-Z0-9_]+$"))
 
 ; ==========================================
-; Comments
+; Comments & Punctuation
 ; ==========================================
 
 (comment) @comment
-
-; ==========================================
-; Operators & Punctuation
-; ==========================================
 
 [
   "+" "-" "*" "/" "%"
