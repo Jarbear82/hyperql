@@ -73,8 +73,19 @@ module.exports = grammar({
         "ROLE",
         field("name", $.identifier),
         "ALLOWS",
-        choice(seq("[", commaSep1($.identifier), "]"), $.identifier),
-        optional($.constraint_block),
+        choice(
+          // List of types, optionally followed by constraints
+          seq(
+            "[",
+            commaSep1($.identifier),
+            "]",
+            optional($.constraint_block),
+          ),
+          // Single type with colon (New Syntax)
+          seq($.identifier, ":", $.constraint_block),
+          // Single type, optionally followed by constraints (Old Syntax fallback)
+          seq($.identifier, optional($.constraint_block)),
+        ),
       ),
 
     define_struct: ($) =>
@@ -490,6 +501,7 @@ module.exports = grammar({
     _expression: ($) =>
       choice(
         $.identifier,
+        $.inferred_identifier,
         $.variable,
         $._literal,
         $.function_call,
@@ -504,6 +516,8 @@ module.exports = grammar({
         $.window_function,
         seq("(", $._expression, ")"),
       ),
+
+    inferred_identifier: ($) => seq(".", $.identifier),
 
     list_predicate: ($) =>
       seq(
@@ -568,7 +582,7 @@ module.exports = grammar({
       ),
 
     property_assignment: ($) =>
-      seq($.identifier, choice(":", "="), $._expression),
+      seq($.identifier, "=", $._expression),
 
     assignment_expression: ($) => prec(15, seq($.property_access, "=", $._expression)),
 

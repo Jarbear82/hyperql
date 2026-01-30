@@ -47,7 +47,7 @@ RETURN n, TYPE(n);
 ==================
 Create Node
 ==================
-CREATE NODE u:User { name: "Alice", age: 30 };
+CREATE NODE u:User { name = "Alice", age = 30 };
 ---
 
 (source_file
@@ -68,7 +68,7 @@ CREATE NODE u:User { name: "Alice", age: 30 };
 Create Edge
 ==================
 CREATE EDGE e:Follows {
-    created_at: "2023-01-01",
+    created_at = "2023-01-01",
     from => u,
     to => v
 };
@@ -93,7 +93,7 @@ CREATE EDGE e:Follows {
 ==================
 Merge with Roles
 ==================
-MERGE (e:Enrollment { since: 2020, student => s, course => c })
+MERGE (e:Enrollment { since = 2020, student => s, course => c })
 ON CREATE SET e.Date = NOW()
 ON MATCH SET e.Updated = true;
 ---
@@ -186,7 +186,7 @@ Subquery: EXISTS
 ==================
 MATCH (p:Person)
 WHERE EXISTS (
-  MATCH (c:Commute {driver: (p)})
+  MATCH (c:Commute {driver = (p)})
   WHERE c.Date > "2025-01-01"
 )
 RETURN p.Name;
@@ -365,7 +365,7 @@ SET ISOLATION LEVEL READ COMMITTED;
 ==================
 Merge Object
 ==================
-MERGE OBJECT u WITH { name: "New Name" };
+MERGE OBJECT u WITH { name = "New Name" };
 ---
 
 (source_file

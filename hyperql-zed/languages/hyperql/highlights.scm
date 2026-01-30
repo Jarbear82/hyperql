@@ -144,8 +144,9 @@
 
 (node_pattern ":" @punctuation.delimiter)
 (edge_pattern ":" @punctuation.delimiter)
-(property_assignment [":" "="] @punctuation.delimiter)
+(property_assignment "=" @punctuation.delimiter)
 (property_access ["." "?."] @punctuation.delimiter)
+(inferred_identifier (identifier) @variable.member)
 (edge_pattern "*" @operator)
 (range_literal ".." @operator)
 
