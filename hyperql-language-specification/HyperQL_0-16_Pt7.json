@@ -1,0 +1,652 @@
+{
+  "hyperql_version": "0.16",
+  "part": "7_reference_appendices",
+
+  "error_codes": {
+    "description": "Standardized error codes for HyperQL exceptions. Format [XYYY]. All errors return a standardized JSON object.",
+    "json_format": {
+      "structure": {
+        "code": "Integer [XYYY]",
+        "category": "Error Category",
+        "severity": "ERROR|WARNING|INFO",
+        "message": "Human-readable description",
+        "details": "Context-specific object (e.g., entity_type, constraint_name, violated_by)",
+        "suggestions": "List of actionable remediation steps"
+      }
+    },
+    "categories": {
+      "1xxx": "Syntax & Parse Errors",
+      "2xxx": "Type & Schema Errors",
+      "3xxx": "Constraint Violations",
+      "4xxx": "Runtime Errors",
+      "5xxx": "Transaction Errors",
+      "6xxx": "Index & Storage Errors",
+      "9xxx": "System Errors"
+    },
+    "examples": [
+      { "code": 1001, "name": "Syntax Error", "desc": "Unexpected token" },
+      { "code": 2001, "name": "Type Mismatch", "desc": "Expected X, got Y" },
+      { "code": 2020, "name": "Ambiguous Role Constraint", "desc": "Field in constraint missing from allowed type" },
+      { "code": 2025, "name": "Parameter Type Mismatch", "desc": "Query parameter type doesn't match expected type" },
+      { "code": 2030, "name": "Ambiguous Function Call", "desc": "Multiple function signatures match, cannot resolve" },
+      {
+        "code": 2010,
+        "name": "Undefined Role Reference",
+        "desc": "Edge definition references a role that has not been defined via DEFINE ROLE",
+        "details": {
+          "enforcement": "All roles must be explicitly defined - no ad-hoc roles allowed",
+          "resolution": "Create DEFINE ROLE statement before using in DEFINE EDGE"
+        },
+        "example": "Role 'guardian' used in edge Guardianship but no 'DEFINE ROLE guardian' exists"
+      },
+      {
+        "code": 3001,
+        "name": "Unique Constraint Violated",
+        "desc": "Value already exists"
+      },
+      {
+        "code": 3002,
+        "name": "Role Uniqueness Constraint Required",
+        "desc": "Role-based MERGE requires @unique constraint on specified roles",
+        "example": "MERGE (e:Enrollment { student => s, course => c }) requires @unique(student, course)"
+      },
+      {
+        "code": 3011,
+        "name": "Node Constraint Violated",
+        "desc": "Node instance violates one or more constraints in the node definition",
+        "details": {
+          "anonymous": "Reports constraint index: 'Failed constraint #2: age <= 150'",
+          "named": "Reports constraint name: 'Failed constraint \"valid_age\": age >= 0 AND age <= 150'"
+        },
+        "example": "Person node violates constraint: age (value: 200) must be <= 150"
+      },
+      {
+        "code": 3012,
+        "name": "Role Constraint Violated",
+        "desc": "Node does not satisfy role constraints when being bound to edge",
+        "details": {
+          "context": "Includes node, role, and failing constraint",
+          "traversal": "Can reference node properties in error message"
+        },
+        "example": "Node 'bob' cannot fill role 'mother': violates constraint 'is_female' (Person.gender == Gender.FEMALE)"
+      },
+      {
+        "code": 3013,
+        "name": "Edge Constraint Violated",
+        "desc": "Edge instance violates one or more constraints in the edge definition",
+        "details": {
+          "context": "Can reference multiple role variables and edge fields",
+          "relationship_rules": "Validates cross-role constraints (e.g., husband != wife)"
+        },
+        "example": "Marriage edge violates constraint 'different_people': husband and wife cannot be the same person"
+      },
+      { "code": 3020, "name": "Max Constraints Exceeded", "desc": "Too many constraints per node" },
+      { "code": 3021, "name": "Expression Depth Exceeded", "desc": "Constraint expression too complex" },
+      { "code": 3022, "name": "Constraint Timeout", "desc": "Evaluation took too long" },
+      { "code": 3023, "name": "Read-Only Field Violation", "desc": "Attempt to modify @readonly field after creation" },
+      { "code": 3024, "name": "Materialized Property Update Failed", "desc": "@materialized property recomputation failed" },
+      { "code": 3030, "name": "Migration Validation Failed", "desc": "Existing data violates new constraint" },
+      { "code": 3031, "name": "Schema Evolution Conflict", "desc": "Concurrent schema modifications conflict" },
+      { "code": 3040, "name": "Circular Dependency", "desc": "Constraint cycle detected (use @deferred)" },
+      { "code": 4010, "name": "Invalid Parameter Value", "desc": "Parameter value violates constraints" },
+      { "code": 4011, "name": "Subquery Timeout", "desc": "@computed(TRAVERSE) exceeded timeout limit" },
+      {
+        "code": 5002,
+        "name": "Transaction Aborted",
+        "desc": "Concurrent modification conflict"
+      },
+      { "code": 5003, "name": "Prepared Statement Not Found", "desc": "Referenced prepared statement doesn't exist" },
+      { "code": 6010, "name": "Index Corruption", "desc": "Index structure corrupted, rebuild required" }
+    ]
+  },
+
+  "constraint_examples": {
+    "node_constraints": [
+      {
+        "description": "Simple anonymous constraints",
+        "query": "DEFINE NODE Person {\n  id, name, age, email\n} {\n  constraints: [\n    age >= 0,\n    age <= 150,\n    email != \"\"\n  ]\n};"
+      },
+      {
+        "description": "Named constraints for clarity",
+        "query": "DEFINE NODE BankAccount {\n  account_number, balance, overdraft_limit\n} {\n  constraints: {\n    valid_balance: balance >= -overdraft_limit,\n    has_account_number: account_number != \"\",\n    positive_overdraft: overdraft_limit >= 0\n  }\n};"
+      }
+    ],
+    "role_constraints": [
+      {
+        "description": "Single type role with constraints",
+        "query": "DEFINE ROLE mother ALLOWS Person {\n  constraints: [\n    Person.gender == Gender.FEMALE,\n    Person.age >= 18\n  ]\n};"
+      },
+      {
+        "description": "Multi-type role with named constraints",
+        "query": "DEFINE ROLE driver ALLOWS [Person, AI] {\n  constraints: {\n    is_licensed: this.licensed == true,\n    meets_requirements: (this.age >= 16 AND this.type == \"Person\") OR this.type == \"AI\"\n  }\n};"
+      }
+    ],
+    "edge_constraints": [
+      {
+        "description": "Relationship validation",
+        "query": "DEFINE EDGE Marriage {\n  husband <- (ONE),\n  wife <- (ONE),\n  date\n} {\n  constraints: [\n    husband != wife,\n    date <= NOW()\n  ]\n};"
+      },
+      {
+        "description": "Complex edge constraints with role property access",
+        "query": "DEFINE EDGE Employment {\n  employee <- (ONE),\n  employer <- (ONE),\n  start_date,\n  end_date,\n  salary\n} {\n  constraints: {\n    different_entities: employee != employer,\n    valid_start: start_date <= NOW(),\n    valid_end: end_date IS NULL OR end_date > start_date,\n    positive_salary: salary > 0,\n    legal_age: employee.age >= 16,\n    registered_employer: employer.registration_status == \"ACTIVE\"\n  }\n};"
+      }
+    ],
+    "error_reporting": [
+      {
+        "description": "Anonymous constraint failure",
+        "error": "Error [3011]: Node constraint violated\n  Node: Person\n  Failed constraint #2: \"age <= 150\"\n  Value: age = 200"
+      },
+      {
+        "description": "Named constraint failure",
+        "error": "Error [3013]: Edge constraint violated\n  Edge: Employment\n  Failed constraint 'legal_age': \"employee.age >= 16\"\n  Value: employee.age = 15"
+      }
+    ]
+  },
+
+  "query_examples": {
+    "single_role_edges": [
+      {
+        "description": "Friendship - symmetric relationship",
+        "schema": "DEFINE EDGE Friendship { friend <- (MANY) };",
+        "usage": [
+          {
+            "create": "CREATE EDGE f:Friendship { friend => alice, friend => bob, friend => carol };",
+            "query": "MATCH (p:Person { name: \"Alice\" }), (f:Friendship { friend => p }) RETURN f.friend AS all_friends;",
+            "result": "Returns [alice, bob, carol]"
+          },
+          {
+            "traversal": "MATCH (alice:Person { name: \"Alice\" })-[:Friendship]-(friend) RETURN friend;",
+            "result": "Returns all people in same Friendship edge as Alice"
+          }
+        ]
+      },
+      {
+        "description": "Group membership",
+        "schema": "DEFINE EDGE GroupChat { member <- (MANY), created: Date };",
+        "usage": [
+          {
+            "create": "CREATE EDGE gc:GroupChat { member => alice, member => bob, member => carol, created: NOW() };",
+            "query": "MATCH (gc:GroupChat) WHERE alice IN gc.member RETURN gc.member AS group_members;",
+            "note": "All members are targets (incoming arrows)"
+          }
+        ]
+      },
+      {
+        "description": "Tag collection",
+        "schema": "DEFINE EDGE Tagged { tag -> (MANY) };",
+        "usage": [
+          {
+            "create": "CREATE EDGE t:Tagged { tag => sports_tag, tag => news_tag };",
+            "note": "All tags are sources (outgoing arrows)",
+            "query": "MATCH (article:Article)-[:Tagged]->(tag) RETURN tag;"
+          }
+        ]
+      }
+    ],
+    "bidirectional_edges": [
+      {
+        "description": "Symmetric relationship with explicit bidirectional syntax",
+        "schema": "DEFINE EDGE Friendship { friend <-> (MANY) };",
+        "usage": [
+          {
+            "create": "CREATE EDGE f:Friendship { friend => [alice, bob] };",
+            "query": "MATCH (a:Person { name: \"Alice\" })-[:Friendship]-(b:Person) RETURN b.name;",
+            "note": "Traverses bidirectionally regardless of creation order"
+          }
+        ]
+      },
+      {
+        "description": "Mixed directionality edge",
+        "schema": "DEFINE EDGE Commute { driver -> (ONE), passenger <-> (MANY), car <- (ONE) };",
+        "usage": [
+          {
+            "create": "CREATE EDGE c:Commute { driver => d, passenger => [p1, p2], car => v };",
+            "query": "MATCH (p1)-[:Commute]-(p2) RETURN p2;",
+            "note": "Passengers are peers and can traverse to each other"
+          }
+        ]
+      }
+    ],
+    "mutations": [
+      {
+        "description": "Role-Binding MERGE",
+        "query": "MERGE (e:Enrollment { student => s, course => c }) ON CREATE SET e.Date = NOW();"
+      },
+      {
+        "description": "Atomic List Append (Set Arithmetic)",
+        "query": "MATCH (c:Commute) SET c.passengers += new_passenger;"
+      },
+      {
+        "description": "Atomic List Remove",
+        "query": "MATCH (c:Commute) SET c.passengers -= old_passenger;"
+      }
+    ],
+    "path_queries": [
+      {
+        "description": "Bottleneck Path (Minimize worst latency)",
+        "query": "MATCH PATH p = (a)-[:Link* WEIGHT BY latency USING MAX]->(b) RETURN p;"
+      },
+      {
+        "description": "Widest Path (Maximize min bandwidth)",
+        "query": "MATCH PATH p = (a)-[:Pipe* WEIGHT BY bandwidth USING MIN]->(b) ORDER BY p.cost DESC;"
+      }
+    ],
+    "global_search": [
+      {
+        "description": "Cross-Type Global Search",
+        "query": "MATCH (n) CROSS_TYPE WHERE n.LastName = 'Smith' RETURN n, TYPE(n);"
+      }
+    ],
+
+    "subqueries": [
+      {
+        "description": "EXISTS - Find people who have recent commutes",
+        "query": "MATCH (p:Person)\nWHERE EXISTS (\n  MATCH (c:Commute {driver => p})\n  WHERE c.Date > \"2025-01-01\"\n)\nRETURN p.Name;"
+      },
+      {
+        "description": "IN - Find people in high-budget departments",
+        "query": "MATCH (p:Person)\nWHERE p.Department IN (\n  MATCH (d:Department)\n  WHERE d.Budget > 1000000\n  RETURN d.Name\n)\nRETURN p;"
+      },
+      {
+        "description": "Correlated subquery in RETURN",
+        "query": "MATCH (p:Person)\nRETURN p.Name,\n  (MATCH (c:Commute {driver => p}) RETURN COUNT(c)) AS commute_count\nORDER BY commute_count DESC;"
+      }
+    ],
+    "indexing": [
+      {
+        "description": "Define composite index",
+        "query": "DEFINE INDEX NameIndex ON Person (LastName, FirstName);"
+      },
+      {
+        "description": "Vector similarity search",
+        "query": "DEFINE FIELD Embedding: Vector<384> @index(vector, metric=\"cosine\");\n\nMATCH (p:Person)\nWHERE VECTOR_SIMILARITY(p.Embedding, $query_embedding) > 0.8\nRETURN p\nORDER BY VECTOR_SIMILARITY(p.Embedding, $query_embedding) DESC\nLIMIT 10;"
+      },
+      {
+        "description": "Full-text search with index hint",
+        "query": "MATCH (p:Person)\nUSE INDEX DescriptionFulltext\nWHERE p.Description MATCHES \"avatar.*fire\"\nRETURN p;"
+      }
+    ],
+    "pattern_matching": [
+      {
+        "description": "String pattern matching combinations",
+        "query": "MATCH (p:Person)\nWHERE p.Name LIKE \"A%\"\n  AND p.Email ILIKE \"%@gmail.com\"\n  AND p.Phone MATCHES \"^\\\\d{3}-\\\\d{3}-\\\\d{4}$\"\nRETURN p;"
+      },
+      {
+        "description": "Complex conditionals with pattern matching",
+        "query": "MATCH (p:Person)\nRETURN p.Name,\n  MATCH p.Status {\n    ACTIVE => \"Currently Active\",\n    PENDING => \"Awaiting Approval\",\n    INACTIVE => \"Not Active\",\n    _ => \"Unknown Status\"\n  } AS status_label,\n  CASE\n    WHEN p.Age < 18 THEN \"Minor\"\n    WHEN p.Age < 65 THEN \"Adult\"\n    ELSE \"Senior\"\n  END AS age_group;"
+      }
+    ],
+    "null_handling": [
+      {
+        "description": "Null checks with optional fields",
+        "query": "MATCH (p:Person)\nWHERE p.MiddleName IS NOT NULL\n  AND p.Nickname != null\nRETURN p.Name, COALESCE(p.Nickname, p.FirstName) AS display_name;"
+      },
+      {
+        "description": "OPTIONAL MATCH with null filtering",
+        "query": "MATCH (p:Person)\nOPTIONAL MATCH (f:Person)-[:Friendship]-(p)\nWHERE f IS NOT NULL\nRETURN p.Name, COLLECT(f.Name) AS friends;"
+      }
+    ],
+    "pagination_and_ordering": [
+      {
+        "description": "Paginated sorted results",
+        "query": "MATCH (p:Person)\nRETURN p.Name, p.Age, p.Department\nORDER BY p.Department ASC, p.Age DESC\nSKIP 20\nLIMIT 10;"
+      },
+      {
+        "description": "Top N with distinct",
+        "query": "MATCH (p:Person)\nRETURN DISTINCT p.Department, AVG(p.Salary) AS avg_sal\nGROUP BY p.Department\nORDER BY avg_sal DESC\nLIMIT 5;"
+      }
+    ],
+    "window_functions": [
+      {
+        "description": "Running totals and rankings",
+        "query": "MATCH (s:Sale)\nRETURN s.Date, s.Product, s.Amount,\n  SUM(s.Amount) OVER (ORDER BY s.Date) AS running_total,\n  RANK() OVER (PARTITION BY s.Product ORDER BY s.Amount DESC) AS product_rank;"
+      },
+      {
+        "description": "Period-over-period comparison",
+        "query": "MATCH (m:MonthlyMetric)\nRETURN m.Month, m.Revenue,\n  LAG(m.Revenue, 1) OVER (ORDER BY m.Month) AS prev_month,\n  (m.Revenue - LAG(m.Revenue, 1) OVER (ORDER BY m.Month)) / \n    LAG(m.Revenue, 1) OVER (ORDER BY m.Month) * 100 AS growth_pct;"
+      }
+    ],
+    "graph_algorithms": [
+      {
+        "description": "Find influencers using PageRank",
+        "query": "MATCH (p:Person)\nWITH PAGERANK(Person, Follows, 20, 0.85) AS scores\nRETURN p.Name, scores[p] AS influence\nORDER BY influence DESC\nLIMIT 10;"
+      },
+      {
+        "description": "Detect communities",
+        "query": "WITH LOUVAIN(User, Collaboration) AS communities\nMATCH (u:User)\nRETURN communities[u] AS community_id, \n  COUNT(u) AS members,\n  COLLECT(u.Name) AS member_names\nGROUP BY communities[u]\nORDER BY members DESC;"
+      },
+      {
+        "description": "Find network bottlenecks",
+        "query": "WITH BETWEENNESS_CENTRALITY(Server, Connection) AS scores\nMATCH (s:Server)\nWHERE scores[s] > 0.7\nRETURN s.Name, scores[s] AS bottleneck_score\nORDER BY bottleneck_score DESC;"
+      }
+    ],
+    "complex_workflows": [
+      {
+        "description": "Multi-stage analysis pipeline",
+        "query": "-- Stage 1: Find active users\nMATCH (u:User)\nWHERE u.LastLogin > \"2025-01-01\"\nWITH u\n\n-- Stage 2: Calculate their activity scores\nWITH u, \n  (MATCH (u)-[:Posted]->(p:Post) RETURN COUNT(p)) AS post_count,\n  (MATCH (u)-[:Liked]->(l) RETURN COUNT(l)) AS like_count\nWITH u, post_count, like_count,\n  post_count * 2 + like_count AS activity_score\n\n-- Stage 3: Rank and filter\nWITH u, activity_score,\n  RANK() OVER (ORDER BY activity_score DESC) AS rank\nWHERE rank <= 100\n\nRETURN u.Name, activity_score, rank\nORDER BY rank;"
+      },
+      {
+        "description": "Recommendation engine",
+        "query": "-- Find similar users based on shared interests\nMATCH (me:User {Id: $user_id})\nMATCH (other:User)\nWHERE other.Id != me.Id\n  AND JACCARD_SIMILARITY(me, other, Interests) > 0.3\nWITH other, JACCARD_SIMILARITY(me, other, Interests) AS similarity\n\n-- Get items they liked that I haven't\nMATCH (other)-[:Liked]->(item:Item)\nWHERE NOT EXISTS (MATCH (me)-[:Liked]->(item))\n\n-- Aggregate and rank recommendations\nWITH item, SUM(similarity) AS total_similarity, COUNT(other) AS recommender_count\nWHERE recommender_count >= 3\nRETURN item.Name, total_similarity, recommender_count\nORDER BY total_similarity DESC\nLIMIT 20;"
+      }
+    ]
+  },
+
+  "best_practices": {
+    "query_optimization": [
+      {
+        "pattern": "Avoid N+1 queries",
+        "anti_pattern": "FOR each person: MATCH (p:Person { id: $id })-[:WorksAt]->(c) RETURN c;",
+        "better": "MATCH (p:Person)-[:WorksAt]->(c) WHERE p.id IN $person_ids RETURN p, COLLECT(c) AS companies GROUP BY p;",
+        "reason": "Single query with aggregation eliminates round trips"
+      },
+      {
+        "pattern": "Use indexes for filtering",
+        "anti_pattern": "MATCH (p:Person) WHERE p.email = $email",
+        "better": "DEFINE FIELD email: String @unique @index; -- Then same query uses index",
+        "reason": "Filtered scans are O(n), indexed lookups are O(log n)"
+      },
+      {
+        "pattern": "Filter early in pipeline",
+        "anti_pattern": "MATCH (p:Person)-[:Friend]-(f) WITH p, COLLECT(f) AS friends WHERE p.age > 30 RETURN p, friends;",
+        "better": "MATCH (p:Person) WHERE p.age > 30 MATCH (p)-[:Friend]-(f) RETURN p, COLLECT(f) AS friends;",
+        "reason": "Reduces intermediate result set size"
+      },
+      {
+        "pattern": "Avoid @computed(TRAVERSE) in WHERE",
+        "anti_pattern": "MATCH (p:Person) WHERE p.friend_count > 10 RETURN p;",
+        "better": "Use @materialized or filter after collection: MATCH (p:Person) WITH p, (MATCH (p)-[:Friend]-(f) RETURN COUNT(f)) AS fc WHERE fc > 10 RETURN p;",
+        "reason": "Executes subquery per candidate row; triggers [WARN-PERF-001]"
+      }
+    ],
+    "schema_design": [
+      {
+        "pattern": "Use global field definitions",
+        "reason": "Enables reuse, prevents type drift, required by EXTENDS",
+        "example": "DEFINE FIELD created_at: Date; -- Reusable across all types"
+      },
+      {
+        "pattern": "Apply @unique where needed",
+        "reason": "Enables MERGE on properties, creates index automatically",
+        "example": "DEFINE FIELD email: String @unique @index;"
+      },
+      {
+        "pattern": "Use constraints for invariants",
+        "reason": "Validates data at write-time, zero read overhead",
+        "example": "DEFINE NODE Person { age } { constraints: [age >= 0, age <= 150] };"
+      },
+      {
+        "pattern": "Prefer @materialized for hot paths",
+        "reason": "Trades write cost for read performance",
+        "when": "Frequently-read aggregations on slowly-changing data",
+        "example": "follower_count: Int @materialized @computed(TRAVERSE) { ... };"
+      }
+    ],
+    "transaction_management": [
+      {
+        "pattern": "Batch writes in transactions",
+        "reason": "Reduces commit overhead, enables atomic operations",
+        "example": "BEGIN; CREATE NODE p1:Person {...}; CREATE NODE p2:Person {...}; COMMIT;",
+        "guideline": "Batch 100-1000 operations per transaction"
+      },
+      {
+        "pattern": "Use prepared statements with parameters",
+        "reason": "Query plan caching, prevents injection, type safety",
+        "example": "PREPARE stmt AS MATCH (p:Person { id: $id }) RETURN p;"
+      },
+      {
+        "pattern": "Keep transactions short",
+        "reason": "Long transactions hold locks, blocking other operations",
+        "guideline": "Target < 1 second transaction duration"
+      }
+    ],
+    "data_modeling": [
+      {
+        "pattern": "Model relationships as hyperedges",
+        "reason": "Captures multi-party relationships and relationship properties",
+        "example": "DEFINE EDGE Meeting { organizer <- (ONE), attendees <- (MANY), date, location };"
+      },
+      {
+        "pattern": "Use Structs for embedded data",
+        "reason": "No identity needed, not queryable as separate entities",
+        "example": "DEFINE STRUCT Address { street, city, zipcode }; DEFINE NODE Person { home_address: Struct<Address> };"
+      },
+      {
+        "pattern": "Use Enums for closed value sets",
+        "reason": "Type safety, prevents invalid values",
+        "example": "DEFINE ENUM Status { ACTIVE, INACTIVE, PENDING };"
+      }
+    ]
+  },
+
+  "migration_guide": {
+    "description": "Practical examples of common schema evolution scenarios",
+    "scenarios": [
+      {
+        "scenario": "Adding a nullable field",
+        "steps": [
+          "1. Define the field globally: DEFINE FIELD middle_name: String?;",
+          "2. Add to node type: ALTER NODE Person { ADD middle_name };",
+          "3. Existing rows will have null for this field"
+        ],
+        "safe": true,
+        "notes": "Non-breaking change"
+      },
+      {
+        "scenario": "Adding a non-null field with default",
+        "steps": [
+          "1. Define field: DEFINE FIELD status: Enum<Status>;",
+          "2. Migrate with default: ALTER NODE Person { ADD status } DEFAULTS { status: Status.ACTIVE };",
+          "3. All existing rows get default value"
+        ],
+        "safe": true,
+        "notes": "Requires default value for existing data"
+      },
+      {
+        "scenario": "Adding a constraint to existing type",
+        "steps": [
+          "1. Validate first: VALIDATE MIGRATION Person WITH { constraints: { valid_age: age >= 0 AND age <= 150 } };",
+          "2. Review violations in validation report",
+          "3. Fix violating data: UPDATE (p:Person) WHERE p.age < 0 OR p.age > 150 SET p.age = null;",
+          "4. Apply constraint: ALTER NODE Person { ADD CONSTRAINT valid_age: age >= 0 AND age <= 150 };"
+        ],
+        "safe": false,
+        "error_on_violation": "[3030] Migration Validation Failed",
+        "notes": "All existing data must satisfy new constraint or ALTER fails"
+      },
+      {
+        "scenario": "Splitting a node type",
+        "steps": [
+          "1. Define new type: DEFINE NODE Employee EXTENDS Person { employee_id, hire_date };",
+          "2. Migrate subset: MATCH (p:Person) WHERE p.is_employee MIGRATE p TO Employee MAP { DROP [is_employee] };",
+          "3. Original Person nodes remain, matching nodes become Employee"
+        ],
+        "safe": true,
+        "notes": "Uses EXTENDS for field inheritance"
+      },
+      {
+        "scenario": "Renaming a field",
+        "steps": [
+          "1. Add new field: ALTER NODE Person { ADD full_name };",
+          "2. Copy data: MATCH (p:Person) SET p.full_name = p.name;",
+          "3. Drop old field: ALTER NODE Person { DROP name };"
+        ],
+        "safe": true,
+        "notes": "Multi-step process to preserve data"
+      },
+      {
+        "scenario": "Merging edge types",
+        "steps": [
+          "1. Define combined edge: DEFINE EDGE Communication EXTENDS [Email, PhoneCall] { medium: Enum<Medium> };",
+          "2. Migrate Email: MATCH (e:Email) MIGRATE e TO Communication DEFAULTS { medium: Medium.EMAIL };",
+          "3. Migrate PhoneCall: MATCH (p:PhoneCall) MIGRATE p TO Communication DEFAULTS { medium: Medium.PHONE };"
+        ],
+        "safe": true,
+        "notes": "Use discriminator field to preserve original type info"
+      },
+      {
+        "scenario": "Handling constraint violations during migration",
+        "approach": "Strict validation prevents bad migrations",
+        "example": "-- This fails if any person.age > 150:\nALTER NODE Person { ADD CONSTRAINT max_age: age <= 150 };\n-- Error [3030]: Migration Validation Failed\n--   Violated by: [person_id_123, person_id_456]\n--   Constraint: max_age (age <= 150)\n\n-- Fix violating data first:\nMATCH (p:Person) WHERE p.age > 150 SET p.age = null;\n-- Then retry ALTER"
+      }
+    ],
+    "validation_workflow": {
+      "description": "Recommended workflow for safe migrations",
+      "steps": [
+        "1. VALIDATE MIGRATION - Preview impact without changes",
+        "2. Review validation report - Check for violations",
+        "3. Fix violating data - Update or delete as appropriate",
+        "4. Re-validate - Confirm all issues resolved",
+        "5. Apply migration - ALTER or MIGRATE",
+        "6. Verify - Query sample data to confirm"
+      ]
+    }
+  },
+
+  "version_history": {
+    "0.16": {
+      "release_date": "2026-01-25",
+      "major_features": [
+        "Instance binding operator: => for role-to-node assignment",
+        "Unified three-level constraint system: node, role, and edge constraints",
+        "Dual constraint syntax: anonymous array form and named object form",
+        "Node-level constraints block for entity invariants",
+        "Role-level constraints block for role fulfillment requirements",
+        "Edge-level constraints block for relationship invariants",
+        "Strict role resolution: ad-hoc roles forbidden",
+        "Constraint performance guarantees: write-time validation, zero read overhead",
+        "Clear separation: decorators (@unique, @index) vs constraints (validation logic)"
+      ],
+      "breaking_changes": [
+        "Role binding syntax changed from '->' to '=>' in CREATE EDGE",
+        "All roles must be explicitly defined via DEFINE ROLE (no inline/ad-hoc roles)",
+        "Constraint violations return specific error codes [3011-3013]",
+        "Node and edge definitions now support optional constraints blocks"
+      ],
+      "performance_improvements": [
+        "Documented constraint validation as write-time only",
+        "Zero read-time overhead from constraint system",
+        "Three-level validation pipeline: node -> role -> edge"
+      ],
+      "design_decisions": [
+        "Field-level constraints NOT supported in v0.16 - keeps system simple",
+        "May add field constraints in future versions if DRY benefits outweigh complexity",
+        "Constraint evaluation order ensures data validity at each composition level"
+      ],
+      "minor_features_added": [
+        "Query parameters with $ syntax and type binding",
+        "Edge property filtering in MATCH patterns",
+        "@materialized support for all @computed(TRAVERSE) types, not just PATH",
+        "Bulk property updates via SET += syntax",
+        "Tuple/record return syntax with projection",
+        "Null coalescing (??) and safe navigation (?.) operators",
+        "Enhanced EXPLAIN modes (VERBOSE, JSON)",
+        "Type-specific role constraints for multi-type roles",
+        "Decimal literal syntax (99.99d)",
+        "Bidirectional roles (<->) for symmetric relationships"
+      ],
+      "documentation_improvements": [
+        "Complete query parameter specification",
+        "Detailed @computed cache scope documentation",
+        "Best practices section with anti-patterns",
+        "Migration guide with practical scenarios",
+        "Expanded performance model documentation",
+        "Function overloading resolution rules",
+        "Comprehensive error code coverage"
+      ]
+    },
+    "0.15": {
+      "release_date": "2026-01-23",
+      "major_features": [
+        "Role assignment syntax: replaced ':' with '->' for clarity",
+        "Explicit MERGE semantics: role-based vs property-based matching",
+        "UUID v7 default for time-ordered IDs",
+        "Namespace STRICT_MODE toggle for prototyping",
+        "Composable Polymorphism inheritance model",
+        "BATCH statement and ON ERROR CONTINUE for partial success",
+        "@materialized decorator for path caching"
+      ],
+      "breaking_changes": [
+        "Role assignment syntax changed from ':' to '->'",
+        "MERGE on roles requires @unique constraint (fails otherwise)",
+        "Split CREATE into CREATE NODE and CREATE EDGE",
+        "Mandatory semicolon termination"
+      ]
+    },
+    "0.14": {
+      "release_date": "2026-01-15",
+      "major_features": [
+        "Finalized Implementation Specs",
+        "Strict/Abort Error Model with [XYYY] codes",
+        "Type-Partitioned Storage Architecture",
+        "Role-Binding MERGE & Set Arithmetic (+/-=)",
+        "Automatic Pathfinding Algorithm Switching (SUM/MAX/MIN)",
+        "Per-Row Memoization for @computed(TRAVERSE)",
+        "Explicit Variable Scoping (Hard WITH barrier)"
+      ]
+    },
+    "0.12": {
+      "release_date": "2025-01-10",
+      "major_features": [
+        "Window functions for analytics (ROW_NUMBER, RANK, LAG, LEAD, etc.)",
+        "Graph algorithm built-ins (SHORTEST_PATH, PAGERANK, LOUVAIN, etc.)",
+        "Transaction isolation levels (SET ISOLATION LEVEL)",
+        "Type coercion system with explicit casting",
+        "WEIGHT BY clause with aggregation functions for path queries",
+        "Composite role uniqueness constraints (@unique on edges)",
+        "Query planning and index selection documentation",
+        "Performance warnings for @computed(TRAVERSE)"
+      ],
+      "improvements": [
+        "Clarified MERGE composite key matching semantics",
+        "Added default vector index metric (cosine)",
+        "Documented UNION type compatibility rules",
+        "Added EXPLAIN and ANALYZE for query optimization",
+        "Bulk operation best practices and transaction batching",
+        "Regex escaping documentation",
+        "Date format specification (ISO-8601 UTC)",
+        "UUID version specification (V7)"
+      ],
+      "rationale_additions": [
+        "Explained why inline property definitions are forbidden"
+      ]
+    },
+    "0.11": {
+      "release_date": "2024-12-15",
+      "major_features": [
+        "SQL-style GROUP BY clause for aggregation",
+        "Aggregation functions (COUNT, SUM, AVG, MIN, MAX, COLLECT, STRING_AGG)",
+        "Variable-length path queries (MATCH PATH)",
+        "PATH data type with nodes, edges, roles, length, cost",
+        "Path predicates (ALL, ANY, NONE)",
+        "Role-specific path traversal for hyperedges",
+        "Subquery support (EXISTS, IN)",
+        "DEFINE INDEX for composite multi-field indexes",
+        "Specialized index types (vector, fulltext, hash)",
+        "ORDER BY, LIMIT, SKIP clauses",
+        "DISTINCT keyword",
+        "String pattern matching (LIKE, ILIKE, MATCHES, IMATCHES)",
+        "IS NULL / IS NOT NULL operators",
+        "Conditional expressions (IF, CASE, MATCH)"
+      ],
+      "improvements": [
+        "MERGE with ON CREATE SET and ON MATCH SET",
+        "Enhanced expression language",
+        "Support for aggregating (MANY) role collections"
+      ]
+    },
+    "0.10": {
+      "release_date": "2024-11-01",
+      "major_features": [
+        "Initial hypergraph query language design",
+        "Schema management (DEFINE NAMESPACE, FIELD, ROLE, NODE, EDGE)",
+        "Type system with strict global field definitions",
+        "Migration system (ALTER, VALIDATE MIGRATION, MIGRATE)",
+        "Decorators (@computed, @unique, @index, etc.)",
+        "Basic CRUD operations (CREATE, MATCH, SET, DELETE)",
+        "Transaction support (BEGIN, COMMIT, ROLLBACK)",
+        "Expression language for computed properties"
+      ]
+    }
+  }
+}

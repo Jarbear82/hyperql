@@ -1,0 +1,69 @@
+{
+  "hyperql_version": "0.16",
+  "part": "6_deployment_and_operations",
+
+  "graph_algorithms": {
+    "description": "Built-in graph algorithm functions.",
+
+    "pathfinding": [
+      {
+        "name": "SHORTEST_PATH",
+        "signature": "SHORTEST_PATH(start, end, edge_type [, WEIGHT BY field USING algo])",
+        "description": "Finds shortest path. Algorithm depends on USING clause.",
+        "algorithms": "SUM=Dijkstra/A*, MAX=Bottleneck, MIN=Widest.",
+        "returns": "PATH object or null"
+      },
+      {
+        "name": "ALL_SHORTEST_PATHS",
+        "description": "Finds all shortest paths (multiple with same cost)."
+      },
+      {
+        "name": "K_SHORTEST_PATHS",
+        "description": "Finds K shortest paths using Yen's algorithm."
+      }
+    ],
+
+    "centrality": [
+      { "name": "PAGERANK" },
+      { "name": "BETWEENNESS_CENTRALITY" },
+      { "name": "DEGREE_CENTRALITY" }
+    ],
+
+    "community_detection": [
+      { "name": "CONNECTED_COMPONENTS" },
+      { "name": "LOUVAIN" }
+    ],
+
+    "pattern_matching": [
+      { "name": "TRIANGLE_COUNT" },
+      { "name": "FIND_CYCLES" }
+    ],
+
+    "similarity": [
+      { "name": "JACCARD_SIMILARITY" },
+      { "name": "COSINE_SIMILARITY" }
+    ],
+
+    "extension_system": {
+      "plugin_architecture": {
+        "description": "Third-party algorithms can be registered as UDFs."
+      }
+    },
+
+    "performance_notes": {
+      "description": "Graph algorithms can be computationally expensive",
+      "optimizations": [
+        "Use parallel execution where possible (PageRank, Connected Components)",
+        "Cache intermediate results for repeated calculations",
+        "Provide progress indicators for long-running algorithms",
+        "Allow query timeouts to prevent runaway computation"
+      ],
+      "best_practices": [
+        "Run expensive algorithms during off-peak hours",
+        "Consider pre-computing centrality metrics and storing as node properties",
+        "Use LIMIT clauses when exploring algorithm results",
+        "Test algorithms on sample subgraphs before running on full dataset"
+      ]
+    }
+  }
+}

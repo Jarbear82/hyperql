@@ -1,0 +1,62 @@
+{
+  "hyperql_version": "0.16",
+  "part": "5_security_and_extensions",
+
+  "aggregation_functions": {
+    "description": "Aggregation functions operate on collections in RETURN clauses with GROUP BY, @computed properties, and role collections.",
+    "functions": [
+      { "name": "COUNT", "signature": "COUNT(expression | *) -> Int" },
+      { "name": "SUM", "signature": "SUM(expression: Int|Float) -> Int|Float" },
+      { "name": "AVG", "signature": "AVG(expression: Int|Float) -> Float" },
+      {
+        "name": "MIN",
+        "signature": "MIN(expression: Int|Float|String|Date) -> same type"
+      },
+      {
+        "name": "MAX",
+        "signature": "MAX(expression: Int|Float|String|Date) -> same type"
+      },
+      {
+        "name": "COLLECT",
+        "signature": "COLLECT([DISTINCT] expression) -> Array"
+      },
+      {
+        "name": "STRING_AGG",
+        "signature": "STRING_AGG(expression: String, separator: String) -> String"
+      }
+    ],
+    "role_collection_aggregation": {
+      "description": "Aggregation over (MANY) role collections is built-in and does NOT require graph traversal",
+      "examples": ["MATCH (c:Commute) RETURN c, COUNT(c.passengers)"]
+    },
+    "grouping_patterns": {
+      "sql_style": {
+        "syntax": "RETURN agg_func(expr), group_expr GROUP BY group_expr"
+      },
+      "with_style": {
+        "syntax": "WITH group_expr AS alias, COLLECT(var) AS collection RETURN ..."
+      }
+    }
+  },
+
+  "window_functions": {
+    "description": "Window functions perform calculations across a set of rows related to the current row.",
+    "syntax": "function() OVER ([PARTITION BY expr] [ORDER BY expr])",
+    "ranking_functions": [
+      { "name": "ROW_NUMBER" },
+      { "name": "RANK" },
+      { "name": "DENSE_RANK" },
+      { "name": "NTILE" }
+    ],
+    "aggregate_window_functions": [{ "name": "SUM/AVG/MIN/MAX/COUNT OVER" }],
+    "navigation_functions": [
+      { "name": "LAG" },
+      { "name": "LEAD" },
+      { "name": "FIRST_VALUE" },
+      { "name": "LAST_VALUE" }
+    ],
+    "frame_specification": {
+      "syntax": "OVER (ORDER BY expr [ROWS|RANGE BETWEEN start AND end])"
+    }
+  }
+}

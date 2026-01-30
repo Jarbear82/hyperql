@@ -1,0 +1,376 @@
+{
+  "hyperql_version": "0.16",
+  "part": "1_schema_and_types",
+  "design_philosophy": "Strict Object-Oriented Graph Schema with Explicit Composition, Namespaces, Migration, Global Definitions, and Advanced Querying",
+
+  "syntax_rules": {
+    "termination": "All statements must be terminated by a semicolon (;).",
+    "trailing_commas": "Trailing commas are allowed in all list and struct contexts."
+  },
+
+  "storage_architecture": {
+    "model": "Type-Partitioned Storage",
+    "description": "Global fields are logical constraints (interfaces), not physical storage locations. Data is physically partitioned by Node Type.",
+    "implications": [
+      "Queries specifying a type (MATCH (p:Person)) are optimized to scan only that type's partition.",
+      "Global queries (MATCH (n) WHERE n.LastName = 'X') require scanning all partitions containing that field.",
+      "To optimize global searches, use the CROSS_TYPE keyword or future Materialized Views."
+    ]
+  },
+
+  "inheritance_model": {
+    "name": "Composable Polymorphism",
+    "description": "EXTENDS implements field composition via global field definitions. Multiple inheritance cannot create conflicts because all fields reference global DEFINE FIELD declarations.",
+    "decorator_semantics": "Decorators are properties of global field definitions, not inheritance paths. A field inherited from multiple parents retains decorators from its global definition.",
+    "diamond_problem": "Resolved by design - no conflicts possible when all fields reference the same global definition."
+  },
+
+  "terminology": {
+    "field": "Schema-level property definition (DEFINE FIELD)",
+    "property": "Instance-level data value (used interchangeably with field in queries)",
+    "node_type": "Schema definition via DEFINE NODE",
+    "edge_type": "Schema definition via DEFINE EDGE",
+    "hyperedge": "Edge connecting multiple nodes via roles (HyperQL's primary edge model)",
+    "role": "Named position in a hyperedge connecting to nodes"
+  },
+
+  "schema_management": {
+    "definitions": [
+      {
+        "keyword": "DEFINE NAMESPACE",
+        "syntax": "DEFINE NAMESPACE Name.Space [STRICT_MODE = true|false];",
+        "description": "Declares the namespace for the current schema file. STRICT_MODE=false allows inline property definitions for prototyping (default is true).",
+        "example": "DEFINE NAMESPACE Core.Game STRICT_MODE = true;",
+        "notes": "Cross-namespace references require explicit IMPORT."
+      },
+      {
+        "keyword": "DEFINE ENUM",
+        "syntax": "DEFINE ENUM EnumName { CONSTANT, ... }",
+        "description": "Defines a closed set of named constants.",
+        "example": "DEFINE ENUM Status { ACTIVE, INACTIVE, PENDING }"
+      },
+      {
+        "keyword": "DEFINE FIELD",
+        "syntax": "DEFINE FIELD FieldName: DataType? [@decorator]",
+        "description": "Defines a global, reusable Property Type configuration.",
+        "example": "DEFINE FIELD email: String? @unique @index;",
+        "notes": [
+          "Fields are non-null by default. Append `?` to type for nullable fields (e.g., `String?`, `Int?`).",
+          "Decorators (@unique, @index, @required, @readonly) are structural metadata, not validation constraints.",
+          "Field-level constraints are NOT supported in v0.16 (including @computed fields) - use node-level constraints instead."
+        ]
+      },
+      {
+        "keyword": "DEFINE ROLE",
+        "syntax": "DEFINE ROLE RoleName ALLOWS Type: { constraints } | TypeA: { ... }, TypeB: { ... }",
+        "description": "Defines a global role interface with optional constraints that must be satisfied for any node to fill this role in any edge.",
+        "constraint_forms": {
+          "unified": {
+            "syntax": "ALLOWS [TypeA, TypeB]: { .field == value }",
+            "description": "Constraints that apply to all allowed types. Referenced fields must exist on ALL types with compatible types.",
+            "example": "DEFINE ROLE licensed_driver ALLOWS [Person, AI]: { .licensed == true };"
+          },
+          "type_specific": {
+            "syntax": "ALLOWS TypeA: { .field == value }, TypeB: { ... }",
+            "description": "Type-specific constraints. Each type can have different validation rules.",
+            "example": "DEFINE ROLE driver ALLOWS Person: { .age >= 16, .licensed == true }, AI: { .version >= \"2.0\" };"
+          }
+        },
+        "error_codes": {
+          "2020": "Field referenced in unified constraint does not exist on all allowed types",
+          "2021": "Type mismatch in unified constraint - field has incompatible types across allowed types"
+        },
+        "constraint_context": "Can reference allowed type fields via .field or Type.field notation",
+        "example": "DEFINE ROLE driver ALLOWS Person: { .age >= 16 }, AI: { .version >= \"2.0\" };",
+        "notes": [
+          "All roles must be explicitly defined. Ad-hoc inline roles are forbidden.",
+          "Multi-Type Resolution: Fields referenced in constraints must exist on ALL allowed types unless disambiguated with IS operator. Fails with [2020] otherwise.",
+          "Constraints block is optional. Omit if role only restricts types without additional validation."
+        ]
+      },
+      {
+        "keyword": "DEFINE STRUCT",
+        "syntax": "DEFINE STRUCT StructName { FieldName, FieldName2, ... }",
+        "description": "Defines a value object container. Structs have no ID, cannot be connected to edges, and exist only embedded within Nodes.",
+        "example": "DEFINE STRUCT Address { Street, City, ZipCode }"
+      },
+      {
+        "keyword": "DEFINE TRAIT",
+        "syntax": "DEFINE TRAIT TraitName { FieldName, FieldName2, ... }",
+        "description": "Defines a composable set of properties (Interface/Mixin). Traits confer type labels when used via EXTENDS.",
+        "example": "DEFINE TRAIT Nameable { Name }"
+      },
+      {
+        "keyword": "DEFINE ABSTRACT NODE",
+        "syntax": "DEFINE ABSTRACT NODE NodeTypeName [EXTENDS [Type1, Type2]] { FieldName, ... } [{ constraints: [...] }] | [{ constraints: {...} }]",
+        "description": "Defines a Node Type that can be extended but never instantiated directly.",
+        "example": "DEFINE ABSTRACT NODE Entity { Id, CreatedAt } { constraints: [CreatedAt <= NOW()] };"
+      },
+      {
+        "keyword": "DEFINE NODE",
+        "syntax": "DEFINE NODE NodeTypeName [EXTENDS [Type1, Type2]] { FieldName, ... } [{ constraints: [...] }] | [{ constraints: {...} }]",
+        "description": "Defines a strict Node Type with optional entity-level constraints. Supports multiple inheritance via EXTENDS.",
+        "constraint_syntax": {
+          "array_form": {
+            "syntax": "{ constraints: [expr1, expr2, ...] }",
+            "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
+            "example": "{ constraints: [.age >= 0, .age <= 150, .name != \"\"] }"
+          },
+          "object_form": {
+            "syntax": "{ constraints: { name1: expr1, name2: expr2, ... } }",
+            "description": "Named constraints for better error reporting and documentation.",
+            "example": "{ constraints: { valid_age: .age >= 0 AND .age <= 150, has_name: .name != \"\" } }"
+          }
+        },
+        "constraint_context": "Can reference 'this' and all node fields, including @computed properties. Field references in constraints use dot prefix (.field).",
+        "example": "DEFINE NODE Person { id, name, age } { constraints: [.age >= 0, .age <= 150] };",
+        "notes": "Constraints block is optional. Omit if no entity-level validation is needed."
+      },
+      {
+        "keyword": "DEFINE ABSTRACT EDGE",
+        "syntax": "DEFINE ABSTRACT EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { FieldName, role: [<-|->] (Cardinality), ... } [{ constraints: [...] }] | [{ constraints: {...} }]",
+        "description": "Defines an Edge Type that can be extended but never instantiated directly.",
+        "example": "DEFINE ABSTRACT EDGE Transaction { TransactionDate }"
+      },
+      {
+        "keyword": "DEFINE EDGE",
+        "syntax": "DEFINE EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { FieldName, role?: [<-|->|<->] (Cardinality), ... } [{ constraints: [...] }] | [{ constraints: {...} }]",
+        "description": "Defines a strict Hyperedge with optional relationship-level constraints. Supports multiple inheritance and strictly typed Roles with explicit directionality or symmetry.",
+        "role_resolution": "Role names must exactly match a DEFINE ROLE statement. Ad-hoc roles are forbidden.",
+        "constraint_syntax": {
+          "array_form": {
+            "syntax": "{ constraints: [expr1, expr2, ...] }",
+            "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
+            "example": "{ constraints: [.husband != .wife, .date <= NOW()] }"
+          },
+          "object_form": {
+            "syntax": "{ constraints: { name1: expr1, name2: expr2, ... } }",
+            "description": "Named constraints for better error reporting and documentation.",
+            "example": "{ constraints: { different_people: .husband != .wife, valid_date: .date <= NOW() } }"
+          }
+        },
+        "constraint_context": "Can reference all role variables and edge fields, including @computed properties. Field references use dot prefix.",
+        "example": "DEFINE EDGE Marriage { husband <- (ONE), wife <- (ONE), date } { constraints: [.husband != .wife, .date <= NOW()] };",
+        "notes": [
+          "Optional Roles: Use '?' suffix (e.g., mother? <- (ONE)) to indicate a role can be null upon creation. Deprecates @optional.",
+          "Roles with (MANY) cardinality return ordered lists by default. Use @unordered for set semantics.",
+          "Directionality: <- indicates a Source role (incoming), -> indicates a Target role (outgoing), <-> indicates a Bidirectional role (symmetric).",
+          "Bidirectional Roles (<->): Semantically symmetric. Traversal matches both directed (->, <-) and undirected (-) patterns. Role access (edge.role) returns all bound nodes.",
+          "Validation: A valid edge requires at least one of: a) Two or more distinct roles (regardless of cardinality or direction), OR b) A single role with (MANY) cardinality. Examples: - Valid: { friend <-> (MANY) } -- Single role, MANY cardinality - Valid: { husband <- (ONE), wife <- (ONE) } -- Two distinct roles - Valid: { source -> (ONE), targets -> (MANY) } -- Mixed cardinalities - Invalid: { person <- (ONE) } -- Single role with ONE cardinality. Rationale: Single (ONE) role creates degenerate edge with no relationship utility.",
+          "Constraints block is optional. Omit if no relationship-level validation is needed."
+        ]
+      },
+      {
+        "keyword": "DEFINE INDEX",
+        "syntax": "DEFINE INDEX IndexName ON NodeType (Field1, Field2, ...);",
+        "description": "Creates a composite index on multiple fields for optimized multi-field queries.",
+        "example": "DEFINE INDEX NameIndex ON Person (LastName, FirstName);"
+      }
+    ],
+
+    "migration": [
+      {
+        "keyword": "ALTER",
+        "syntax": "ALTER NODE|EDGE TypeName { ADD FieldName, DROP FieldName, RENAME FieldName TO NewFieldName, ADD CONSTRAINT Name: Expression }",
+        "description": "Modifies an existing schema definition.",
+        "notes": "Adding a constraint via ALTER is strict. All existing data must satisfy the new rule or the operation fails with [3030]."
+      },
+      {
+        "keyword": "VALIDATE MIGRATION",
+        "syntax": "VALIDATE MIGRATION variable TO NewType [MAP {...}] [DEFAULTS {...}]",
+        "description": "Non-destructive preview of migration."
+      },
+      {
+        "keyword": "MIGRATE",
+        "syntax": "MIGRATE variable TO NewType [MAP { old_field: new_field, DROP [field1, field2] }] [DEFAULTS { field: value }]",
+        "description": "Type conversion operation. Destructive by design."
+      }
+    ],
+
+    "decorators": [
+      {
+        "name": "@computed",
+        "scope": "Logic",
+        "description": "Defines a virtual property calculated at Read-Time using the Standard Expression Language.",
+        "syntax": "@computed(EXPRESSION)",
+        "example": "full_name: String @computed(this.FirstName + \" \" + this.LastName)"
+      },
+      {
+        "name": "@computed(TRAVERSE)",
+        "scope": "Logic",
+        "description": "Defines a virtual property calculated via graph traversal query.",
+        "syntax": "@computed(TRAVERSE) { QUERY }",
+        "evaluation_model": "Per-Row Memoization",
+        "details": "Subquery executes once per node, on first access within a query. Cached for the duration of that query execution only.",
+        "opt_out": "Use @volatile to disable caching.",
+        "example": "friend_count: Int @computed(TRAVERSE) { MATCH (this)-[:Friendship]-(f) RETURN COUNT(f) }",
+        "performance_warning": {
+          "severity": "HIGH",
+          "issue": "Using in WHERE clauses forces N executions (one per candidate row). Static analysis will issue a warning [WARN-PERF-001]."
+        }
+      },
+      {
+        "name": "@deferred",
+        "scope": "Constraint",
+        "description": "Defers constraint validation until transaction commit. Used to resolve circular dependencies.",
+        "example": "{ constraints: { mutual_spouse: ... } @deferred }"
+      },
+      {
+        "name": "@volatile",
+        "scope": "Logic",
+        "description": "Disables memoization for @computed(TRAVERSE) properties. Forces re-execution on every access.",
+        "use_case": "Accessing rapidly changing data within a transaction using READ_UNCOMMITTED."
+      },
+      {
+        "name": "@materialized",
+        "scope": "Performance",
+        "description": "Pre-computes and caches results of @computed(TRAVERSE) properties, moving cost from read-time to write-time. Works with any return type, not just PATH.",
+        "supported_types": ["PATH", "Int", "Float", "String", "Bool", "List<T>", "any computed type"],
+        "update_trigger": "Recomputed on write operations affecting the traversal pattern",
+        "examples": [
+          "friend_count: Int @materialized @computed(TRAVERSE) { MATCH (this)-[:Friendship]-(f) RETURN COUNT(f) };",
+          "friend_path: PATH @materialized @computed(TRAVERSE) { MATCH PATH p = (this)-[:Friend*2]-(f) RETURN p };",
+          "active_projects: List<String> @materialized @computed(TRAVERSE) { MATCH (this)-[:WorksOn]->(p:Project { active: true }) RETURN COLLECT(p.name) };"
+        ],
+        "performance_notes": {
+          "write_cost": "Recalculation on every relevant mutation (UPDATE/CREATE/DELETE affecting traversed edges)",
+          "read_cost": "O(1) lookup, same as regular property access",
+          "storage_cost": "Cached value stored per node",
+          "recommendation": "Use for frequently-read, infrequently-updated aggregations"
+        }
+      },
+      {
+        "name": "@display",
+        "scope": "UI / Metadata",
+        "description": "Indicates this property is the primary human-readable label for the entity."
+      },
+      {
+        "name": "@unique",
+        "scope": "Constraint",
+        "description": "Enforces global uniqueness. Can be applied to fields or Edge Roles (composite uniqueness).",
+        "syntax": "@unique | @unique(role1, role2, ...)",
+        "examples": [
+          "Email: String @unique",
+          "DEFINE EDGE Enrollment { ... } @unique(student, course)"
+        ],
+        "notes": "Required for Role-Based MERGE on hyperedges."
+      },
+      {
+        "name": "@required",
+        "scope": "Constraint",
+        "description": "Enforces non-null existence."
+      },
+      {
+        "name": "@readonly",
+        "scope": "Logic",
+        "description": "Property is immutable after creation."
+      },
+      {
+        "name": "@optional",
+        "scope": "Constraint",
+        "description": "DEPRECATED in v0.16. Use '?' suffix on role names instead. Parser will issue a warning."
+      },
+      {
+        "name": "@ordered",
+        "scope": "Collection",
+        "description": "For (MANY) cardinality roles. Preserves insertion order, allows duplicates. Default."
+      },
+      {
+        "name": "@unordered",
+        "scope": "Collection",
+        "description": "For (MANY) cardinality roles. Set semantics (no duplicates, no order)."
+      }
+    ],
+
+    "index_types": [
+      {
+        "name": "@index",
+        "scope": "Performance",
+        "description": "Creates an index for fast lookups. Default is B-Tree index.",
+        "syntax": "@index | @index(type) | @index(type, options)",
+        "types": [
+          {
+            "type": "default (B-tree)",
+            "syntax": "@index",
+            "use_case": "General-purpose range and equality queries"
+          },
+          {
+            "type": "hash",
+            "syntax": "@index(hash)",
+            "use_case": "Exact-match equality queries only."
+          },
+          {
+            "type": "vector",
+            "syntax": "@index(vector, metric=\"cosine\"|\"euclidean\"|\"dot\")",
+            "use_case": "Similarity search for embeddings.",
+            "default_metric": "cosine"
+          },
+          {
+            "type": "fulltext",
+            "syntax": "@index(fulltext)",
+            "use_case": "Full-text search."
+          }
+        ]
+      }
+    ]
+  },
+
+  "decorator_vs_constraint_distinction": {
+    "decorators": {
+      "purpose": "Structural metadata and indexing",
+      "examples": ["@unique", "@index", "@required", "@readonly", "@optional"],
+      "evaluation": "Enforced by storage layer and type system",
+      "scope": "Single field or structural property"
+    },
+    "constraints": {
+      "purpose": "Business logic validation",
+      "syntax": "{ constraints: [...] } or { constraints: {...} }",
+      "evaluation": "Evaluated at write-time (CREATE, UPDATE, ALTER)",
+      "scope": "Cross-field validation, entity invariants, relationship rules"
+    },
+    "key_difference": "@unique is a structural guarantee (creates index), not a business rule. Constraints express domain logic."
+  },
+
+  "data_types": {
+    "primitives": [
+      { "name": "String", "desc": "UTF-8 text content." },
+      { "name": "Int", "desc": "64-bit signed integer." },
+      { "name": "Int32", "desc": "32-bit signed integer." },
+      { "name": "Float", "desc": "64-bit floating point." },
+      { "name": "Bool", "desc": "Boolean true/false." },
+      { "name": "Date", "desc": "ISO-8601 timestamp (UTC)." },
+      { "name": "Vector<N>", "desc": "Fixed-dimension float array." },
+      { "name": "UUID", "desc": "RFC 4122 UUID Version 7 (time-ordered, sortable)." },
+      {
+        "name": "Decimal(P, S)",
+        "desc": "Fixed-precision decimal. Literal syntax: 99.99d or DECIMAL(\"99.99\")",
+        "examples": ["99.99d", "DECIMAL(\"123.45\")"]
+      },
+      { "name": "Interval", "desc": "Duration of time." },
+      { "name": "Time", "desc": "Time of day." }
+    ],
+    "complex": [
+      { "name": "List<T>", "desc": "Variable-length ordered collection." },
+      { "name": "Enum<Name>", "desc": "Restricted value set." },
+      { "name": "Struct<Name>", "desc": "Embedded object." }
+    ],
+    "cardinality": [
+      {
+        "name": "ONE",
+        "syntax": "(ONE)",
+        "desc": "Exactly one target node per edge instance."
+      },
+      {
+        "name": "MANY",
+        "syntax": "(MANY)",
+        "desc": "Multiple target nodes allowed. MUST be an array []. Single values are rejected."
+      }
+    ],
+    "special": [
+      {
+        "name": "PATH",
+        "desc": "Result type from variable-length path queries."
+      }
+    ]
+  }
+}
