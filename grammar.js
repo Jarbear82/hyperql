@@ -640,9 +640,9 @@ module.exports = grammar({
 
     window_frame_bound: ($) =>
       choice(
-        "UNBOUNDED PRECEDING",
-        "UNBOUNDED FOLLOWING",
-        "CURRENT ROW",
+        seq("UNBOUNDED", "PRECEDING"),
+        seq("UNBOUNDED", "FOLLOWING"),
+        seq("CURRENT", "ROW"),
         seq($._expression, choice("PRECEDING", "FOLLOWING")),
       ),
 

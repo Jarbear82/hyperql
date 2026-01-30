@@ -82,7 +82,8 @@
   "BETWEEN"
   "PRECEDING"
   "FOLLOWING"
-  "CURRENT ROW"
+  "CURRENT"
+  "ROW"
   "UNBOUNDED"
 ] @keyword
 
