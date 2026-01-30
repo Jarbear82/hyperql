@@ -8,4 +8,4 @@ repository = "https://github.com/jarbear82/hyperql"
 
 [grammars.hyperql]
 repository = "file:///home/jarbear82/Documents/tree-sitter/tree-sitter-hyperql"
-rev = "1af6e99b8f3a768f64b5359cf224b6a11b8249e7"
+rev = "d95d603f0d324ea30b67bffa3e2f466ed0315e8e"
