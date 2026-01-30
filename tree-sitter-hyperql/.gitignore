@@ -34,8 +34,8 @@ target/
 # the parser without needing Node.js installed.
 
 # Ignore standard tree-sitter build artifacts
-/src/parser.c
-/src/tree_sitter/
+# /src/parser.c
+# /src/tree_sitter/
 *.target.mk
 
 # DO NOT ignore the wasm file needed for the Zed extension
