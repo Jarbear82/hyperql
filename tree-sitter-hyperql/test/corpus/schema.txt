@@ -1,0 +1,135 @@
+==================
+Define Namespace
+==================
+DEFINE NAMESPACE Core.Game STRICT_MODE = true;
+---
+
+(source_file
+  (definition_statement
+    (define_namespace
+      (namespace_identifier)
+      (boolean_literal))))
+
+==================
+Define Enum
+==================
+DEFINE ENUM Status { ACTIVE, INACTIVE, PENDING };
+---
+
+(source_file
+  (definition_statement
+    (define_enum
+      (identifier)
+      (identifier)
+      (identifier)
+      (identifier))))
+
+==================
+Define Field
+==================
+DEFINE FIELD email: String? @unique @index;
+---
+
+(source_file
+  (definition_statement
+    (define_field
+      (identifier)
+      (decorator
+        (identifier))
+      (decorator
+        (identifier)))))
+
+==================
+Define Role
+==================
+DEFINE ROLE driver ALLOWS [Person, AI] {
+  constraints: {
+    valid_license: this.licensed == true
+  }
+};
+---
+
+(source_file
+  (definition_statement
+    (define_role
+      (identifier)
+      (identifier)
+      (identifier)
+      (constraint_block
+        (named_constraint
+          (identifier)
+          (binary_expression
+            (property_access
+              (identifier)
+              (identifier))
+            (boolean_literal)))))))
+
+==================
+Define Node with Constraints
+==================
+DEFINE NODE Person {
+  name,
+  age
+} {
+  constraints: [
+    age >= 0,
+    age <= 150
+  ]
+};
+---
+
+(source_file
+  (definition_statement
+    (define_node
+      (identifier)
+      (schema_body
+        (identifier)
+        (identifier))
+      (constraint_block
+        (binary_expression
+          (identifier)
+          (integer_literal))
+        (binary_expression
+          (identifier)
+          (integer_literal))))))
+
+==================
+Define Edge with Directional Roles
+==================
+DEFINE EDGE Friendship {
+  friend_a: <- friend_role (ONE),
+  friend_b: -> friend_role (ONE)
+} {
+  constraints: [ friend_a != friend_b ]
+};
+---
+
+(source_file
+  (definition_statement
+    (define_edge
+      (identifier)
+      (schema_body
+        (role_definition
+          (identifier)
+          (identifier))
+        (role_definition
+          (identifier)
+          (identifier)))
+      (constraint_block
+        (binary_expression
+          (identifier)
+          (identifier))))))
+
+==================
+Define Index
+==================
+DEFINE INDEX NameIndex ON Person (LastName, FirstName);
+---
+
+(source_file
+  (definition_statement
+    (define_index
+      (identifier)
+      (identifier)
+      (identifier)
+      (identifier))))

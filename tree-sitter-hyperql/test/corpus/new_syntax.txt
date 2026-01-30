@@ -1,0 +1,77 @@
+==================
+New Syntax: Enum Inference and Role Definition
+==================
+DEFINE ROLE father ALLOWS Person: {
+    constraints: [
+        .gender == .MALE
+    ]
+};
+---
+
+(source_file
+  (definition_statement
+    (define_role
+      (identifier)
+      (identifier)
+      (constraint_block
+        (binary_expression
+          (inferred_identifier
+            (identifier))
+          (inferred_identifier
+            (identifier)))))))
+
+==================
+New Syntax: DML Assignment
+==================
+CREATE NODE doug:Person {
+    name = "Doug",
+    gender = .MALE
+};
+---
+
+(source_file
+  (manipulation_statement
+    (create_node_clause
+      (identifier)
+      (dotted_identifier
+        (identifier))
+      (map_literal
+        (property_assignment
+          (identifier)
+          (string_literal))
+        (property_assignment
+          (identifier)
+          (inferred_identifier
+            (identifier)))))))
+
+==================
+New Syntax: Trailing Commas
+==================
+DEFINE ENUM Status { ACTIVE, INACTIVE, };
+---
+
+(source_file
+  (definition_statement
+    (define_enum
+      (identifier)
+      (identifier)
+      (identifier))))
+
+==================
+New Syntax: Dot properties in constraints
+==================
+DEFINE ROLE adult ALLOWS Person: {
+    constraints: [ .age >= 18 ]
+};
+---
+
+(source_file
+  (definition_statement
+    (define_role
+      (identifier)
+      (identifier)
+      (constraint_block
+        (binary_expression
+          (inferred_identifier
+            (identifier))
+          (integer_literal))))))

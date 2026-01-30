@@ -1,0 +1,41 @@
+{
+  "name": "tree-sitter-hyperql",
+  "version": "0.15.0",
+  "description": "HyperQL grammar for tree-sitter",
+  "main": "bindings/node",
+  "keywords": [
+    "parsing",
+    "incremental",
+    "hyperql",
+    "graph"
+  ],
+  "homepage": "https://github.com/jarbear82/hyperql#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jarbear82/hyperql.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jarbear82/hyperql/issues"
+  },
+  "scripts": {
+    "build": "tree-sitter generate && node-gyp build",
+    "test": "tree-sitter test",
+    "parse": "tree-sitter parse"
+  },
+  "dependencies": {
+    "nan": "^2.18.0"
+  },
+  "devDependencies": {
+    "tree-sitter-cli": "^0.26.3"
+  },
+  "tree-sitter": [
+    {
+      "scope": "source.hyperql",
+      "file-types": [
+        "hql",
+        "hyperql"
+      ],
+      "injection-regex": "^hyperql$"
+    }
+  ]
+}
