@@ -41,6 +41,14 @@ We welcome contributions to the Community Edition! Please read our [Contributing
 
 **Note:** All community contributions are licensed under Apache 2.0.
 
+## Prerequisites
+
+To build and run the HyperQL tools, you need:
+
+- **Zig 0.15.x**: Required to build the LSP server. [Download Zig](https://ziglang.org/download/).
+- **Rust & rustup**: Required for the Zed extension. [Install Rust](https://rustup.rs/).
+- **Node.js & npm**: Required to build the Tree-sitter grammar.
+
 ## Development Setup (Installing as Dev Extension)
 
 To install this repo as a local Zed extension:
