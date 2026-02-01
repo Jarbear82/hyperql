@@ -4,15 +4,15 @@ HyperQL is a modern, graph-relational query language designed to unify the power
 
 ## Editions
 
-HyperQL is currently available as a **Community Edition** (Open Source). An **Enterprise Edition** is planned for the future.
+HyperQL is currently available as a **Community Edition**.
 
-| Feature | Community Edition (OSS) | Enterprise Edition (Planned) |
+| Feature | Community Edition (OSS) |
 | --- | --- | --- |
-| **License** | Apache 2.0 | Commercial |
-| **Syntax Highlighting** | ✅ (Tree-sitter) | ✅ (Enhanced) |
-| **Core LSP Features** | ✅ Basic Diagnostics | ✅ Advanced Refactoring |
-| **Support** | GitHub Issues | 24/7 SLA Support |
-| **Security** | - | ✅ SSO & Audit Logs |
+| **License** | Apache 2.0 |
+| **Syntax Highlighting** | ✅ (Tree-sitter) |
+| **Core LSP Features** | ✅ Basic Diagnostics |
+| **Support** | GitHub Issues |
+| **Security** | - |
 
 ## Getting Started
 
