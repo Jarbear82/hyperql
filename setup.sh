@@ -49,23 +49,31 @@ echo "✅ LSP Built: $BIN_PATH"
 # 3. Update extension.toml with local grammar path
 echo "🔧 Configuring Zed Extension..."
 EXTENSION_TOML="$EXTENSION_PATH/extension.toml"
+GRAMMAR_TMP_PATH="$REPO_ROOT/.grammar-tmp"
 
-# Update repository path
-sed -i "s|repository = \"file://.*\"|repository = \"file://$GRAMMAR_PATH\"|" "$EXTENSION_TOML"
+# Prepare a clean git-enabled copy of the grammar
+# Zed requires the grammar to be a git repo to fetch a revision.
+# We use a temporary directory to avoid nesting .git inside the main repo.
 
-# Ensure local grammar is a git repo (required by Zed for file:// URLs)
-if [ ! -d "$GRAMMAR_PATH/.git" ]; then
-    echo "📦 Initializing local grammar git repo..."
-    cd "$GRAMMAR_PATH"
-    git init -q
-    git add .
-    git commit -m "Local grammar update" -q || true
-    cd "$REPO_ROOT"
-fi
+echo "📦 Preparing temporary grammar repository at $GRAMMAR_TMP_PATH..."
+rm -rf "$GRAMMAR_TMP_PATH"
+mkdir -p "$GRAMMAR_TMP_PATH"
+cp -r "$GRAMMAR_PATH/"* "$GRAMMAR_TMP_PATH/"
 
-CURRENT_REV=$(cd "$GRAMMAR_PATH" && git rev-parse HEAD)
-sed -i "s|rev = \".*\"|rev = \"$CURRENT_REV\"|" "$EXTENSION_TOML"
-echo "✅ Updated extension.toml with local path and revision ($CURRENT_REV)."
+# Initialize git in the temp dir
+git -C "$GRAMMAR_TMP_PATH" init -q
+git -C "$GRAMMAR_TMP_PATH" add .
+git -C "$GRAMMAR_TMP_PATH" commit -m "Dev build $(date)" -q
+
+# Update repository path in extension.toml
+# Regex matches 'repository = "..."' to replace any existing value (file:// or https://)
+sed -i "s|repository = ".*"|repository = \"file://$GRAMMAR_TMP_PATH\"|" "$EXTENSION_TOML"
+
+# Get the new commit hash
+CURRENT_REV=$(git -C "$GRAMMAR_TMP_PATH" rev-parse HEAD)
+sed -i "s|rev = ".*"|rev = \"$CURRENT_REV\"|" "$EXTENSION_TOML"
+
+echo "✅ Updated extension.toml to point to local temp repo ($GRAMMAR_TMP_PATH)."
 
 echo ""
 echo "🎉 Setup Complete!"
