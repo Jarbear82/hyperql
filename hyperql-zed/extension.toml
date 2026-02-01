@@ -7,8 +7,8 @@ description = "HyperQL support for Zed"
 repository = "https://github.com/jarbear82/hyperql"
 
 [grammars.hyperql]
-repository = "file:///home/jarbear82/Documents/tree-sitter/tree-sitter-hyperql"
-rev = "b1c181c65cd9087e6c42b03d0675a5d9dec3a932"
+repository = "file:///home/jarbear82/Documents/hyperql/tree-sitter-hyperql"
+rev = "17712d4328ca5c3a3081c9e86f1a3b8ea235c90d"
 
 [language_servers.hyperql]
 name = "hyperql-lsp"
