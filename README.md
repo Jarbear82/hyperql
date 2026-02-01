@@ -7,7 +7,7 @@ HyperQL is a modern, graph-relational query language designed to unify the power
 HyperQL is currently available as a **Community Edition**.
 
 | Feature | Community Edition (OSS) |
-| --- | --- | --- |
+| --- | --- |
 | **License** | Apache 2.0 |
 | **Syntax Highlighting** | ✅ (Tree-sitter) |
 | **Core LSP Features** | ✅ Basic Diagnostics |
