@@ -1,5 +1,5 @@
 {
-  "hyperql_version": "0.16",
+  "hyperql_version": "0.17",
   "part": "2_type_system_and_expressions",
 
   "type_coercion": {
@@ -239,6 +239,35 @@
         },
         { "name": "MATCH", "signature": "MATCH expr { pattern => value, ... }" }
       ]
+    },
+    "scripting_and_control_flow": {
+      "description": "Procedural constructs available exclusively within DEFINE FUNCTION bodies.",
+      "variables": {
+        "CONST": {
+          "syntax": "CONST name = expression;",
+          "description": "Declares an immutable block-scoped variable. Must be initialized immediately."
+        },
+        "VAR": {
+          "syntax": "VAR name = expression;",
+          "description": "Declares a mutable block-scoped variable. Can be reassigned later."
+        }
+      },
+      "loops": {
+        "WHILE": {
+          "syntax": "WHILE (condition) { statements }",
+          "description": "Executes statements as long as condition evaluates to true."
+        },
+        "FOR_IN": {
+          "syntax": "FOR (item IN list) { statements }",
+          "description": "Iterates over elements in a list."
+        }
+      },
+      "conditionals": {
+        "IF_ELSE": {
+          "syntax": "IF (condition) { statements } [ELSE IF (condition) { statements }] [ELSE { statements }]",
+          "description": "Block-based conditional execution."
+        }
+      }
     }
   },
 

@@ -1,5 +1,5 @@
 {
-  "hyperql_version": "0.16",
+  "hyperql_version": "0.17",
   "part": "4_clients_and_tooling",
 
   "write_clauses": [
@@ -398,6 +398,8 @@
       { "keyword": "SHOW FIELDS" },
       { "keyword": "SHOW ROLES" },
       { "keyword": "SHOW SCHEMA" },
+      { "keyword": "SHOW FUNCTIONS", "description": "Lists all User-Defined Functions in the current namespace." },
+      { "keyword": "SHOW FUNCTION", "syntax": "SHOW FUNCTION Name", "description": "Shows the signature and body of a specific function." },
       {
         "keyword": "EXPLAIN",
         "syntax": "EXPLAIN [VERBOSE | JSON] query",
@@ -448,6 +450,11 @@
         "returns": "{ valid: Bool, violations: List<String> }"
       },
       {
+        "keyword": "EXPLAIN FUNCTION",
+        "syntax": "EXPLAIN FUNCTION Name(arg1, arg2);",
+        "description": "Returns the execution plan and interpreter cost estimate for a function."
+      },
+      {
         "keyword": "EXPLAIN CONSTRAINT",
         "syntax": "EXPLAIN CONSTRAINT Type.ConstraintName;",
         "description": "Returns the AST and execution plan for a constraint."
@@ -467,6 +474,14 @@
           "constraint_timeout_ms": 100
         },
         "modification": "SET CONSTRAINT LIMIT key = value;"
+      },
+      "udf_limits": {
+        "description": "Interpreter safety limits to prevent infinite loops and stack overflows.",
+        "defaults": {
+          "max_recursion_depth": 50,
+          "max_loop_iterations": 10000
+        },
+        "modification": "SET UDF LIMIT key = value;"
       }
     }
   }

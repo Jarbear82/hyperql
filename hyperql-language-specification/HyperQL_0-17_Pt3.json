@@ -1,5 +1,5 @@
 {
-  "hyperql_version": "0.16",
+  "hyperql_version": "0.17",
   "part": "3_transactions_and_query_planning",
 
   "transaction_management": {
@@ -156,6 +156,22 @@
         "write_cost": "None",
         "use_case": "Reading uncommitted data within transaction (READ_UNCOMMITTED)",
         "warning": "Very expensive - avoid in production"
+      }
+    },
+
+    "udf_performance": {
+      "execution_model": "UDFs are interpreted at runtime, not compiled.",
+      "scalar_pure": {
+        "cost": "10-20x overhead compared to built-in functions.",
+        "use_case": "Result formatting, data validation in constraints."
+      },
+      "readonly_traversal": {
+        "cost": "Interpreter overhead PLUS the cost of the underlying MATCH traversal.",
+        "warning": "Always emits [WARN-PERF-002] when used in a WHERE clause regardless of selectivity, as interpreter overhead compounds traversal cost."
+      },
+      "high_volume_scans": {
+        "behavior": "Any UDF in a WHERE clause without selective index-backed predicates will emit [WARN-PERF-002].",
+        "recommendation": "Prefer built-in operators for filtering large result sets."
       }
     },
 

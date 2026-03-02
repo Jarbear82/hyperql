@@ -1,5 +1,5 @@
 {
-  "hyperql_version": "0.16",
+  "hyperql_version": "0.17",
   "part": "5_security_and_extensions",
 
   "aggregation_functions": {
@@ -36,6 +36,11 @@
       "with_style": {
         "syntax": "WITH group_expr AS alias, COLLECT(var) AS collection RETURN ..."
       }
+    },
+    "user_defined_aggregates": {
+      "description": "Custom aggregations defined via DEFINE AGGREGATE FUNCTION can be used interchangeably with built-in aggregation functions. Must be marked @pure.",
+      "syntax": "RETURN Name(expr1, expr2) GROUP BY group_expr",
+      "example": "RETURN p.Department, WeightedAvg(p.Salary, p.PerformanceScore) GROUP BY p.Department;"
     }
   },
 

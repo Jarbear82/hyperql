@@ -1,7 +1,7 @@
 {
-  "hyperql_version": "0.16",
+  "hyperql_version": "0.17",
   "part": "1_schema_and_types",
-  "design_philosophy": "Strict Object-Oriented Graph Schema with Explicit Composition, Namespaces, Migration, Global Definitions, and Advanced Querying",
+  "design_philosophy": "Strict Object-Oriented Graph Schema with Explicit Composition, Namespaces, Migration, Global Definitions, Scripted UDFs, and Advanced Querying",
 
   "syntax_rules": {
     "termination": "All statements must be terminated by a semicolon (;).",
@@ -31,7 +31,9 @@
     "node_type": "Schema definition via DEFINE NODE",
     "edge_type": "Schema definition via DEFINE EDGE",
     "hyperedge": "Edge connecting multiple nodes via roles (HyperQL's primary edge model)",
-    "role": "Named position in a hyperedge connecting to nodes"
+    "role": "Named position in a hyperedge connecting to nodes",
+    "udf": "User-Defined Function (Scripted logic)",
+    "udaf": "User-Defined Aggregate Function"
   },
 
   "schema_management": {
@@ -57,8 +59,26 @@
         "notes": [
           "Fields are non-null by default. Append `?` to type for nullable fields (e.g., `String?`, `Int?`).",
           "Decorators (@unique, @index, @required, @readonly) are structural metadata, not validation constraints.",
-          "Field-level constraints are NOT supported in v0.16 (including @computed fields) - use node-level constraints instead."
+          "Field-level constraints are NOT supported in v0.17 (including @computed fields) - use node-level constraints instead."
         ]
+      },
+      {
+        "keyword": "DEFINE FUNCTION",
+        "syntax": "DEFINE FUNCTION @purity Name(params): ReturnType { body };",
+        "description": "Defines a scripted User-Defined Function (UDF). Requires a mandatory purity decorator (@pure, @readonly, @nondeterministic).",
+        "example": "DEFINE FUNCTION @pure FullName(first: String, last: String): String { RETURN first + \" \" + last; };",
+        "notes": [
+            "Purity is statically validated at definition time.",
+            "Call-graph transitivity applies (e.g., @pure cannot call @readonly).",
+            "UDFs are interpreted; performance warnings apply in high-volume queries."
+        ]
+      },
+      {
+        "keyword": "DEFINE AGGREGATE FUNCTION",
+        "syntax": "DEFINE AGGREGATE FUNCTION @pure Name(params): ReturnType { ACCUMULATE: expr; FINALIZE: expr; };",
+        "description": "Defines a User-Defined Aggregate Function (UDAF) for use in GROUP BY and COLLECT contexts.",
+        "example": "DEFINE AGGREGATE FUNCTION @pure WeightedAvg(val: Float, w: Float): Float { ACCUMULATE: val * w, w; FINALIZE: accumulated_val / accumulated_w; };",
+        "notes": "Must be marked @pure. Graph access is forbidden inside aggregations."
       },
       {
         "keyword": "DEFINE ROLE",
@@ -210,6 +230,21 @@
         }
       },
       {
+        "name": "@pure",
+        "scope": "Function",
+        "description": "Mandatory decorator for UDFs. Logic and arithmetic only. No graph access or non-determinism. Safe for constraints."
+      },
+      {
+        "name": "@readonly",
+        "scope": "Function",
+        "description": "Mandatory decorator for UDFs. May perform graph traversal (MATCH). Deterministic. Safe for computed(TRAVERSE) and queries."
+      },
+      {
+        "name": "@nondeterministic",
+        "scope": "Function",
+        "description": "Mandatory decorator for UDFs. May use non-deterministic built-ins like NOW() or UUID(). Not safe for constraints or memoized caching."
+      },
+      {
         "name": "@deferred",
         "scope": "Constraint",
         "description": "Defers constraint validation until transaction commit. Used to resolve circular dependencies.",
@@ -318,9 +353,9 @@
   "decorator_vs_constraint_distinction": {
     "decorators": {
       "purpose": "Structural metadata and indexing",
-      "examples": ["@unique", "@index", "@required", "@readonly", "@optional"],
+      "examples": ["@unique", "@index", "@required", "@readonly", "@optional", "@pure"],
       "evaluation": "Enforced by storage layer and type system",
-      "scope": "Single field or structural property"
+      "scope": "Single field, function, or structural property"
     },
     "constraints": {
       "purpose": "Business logic validation",

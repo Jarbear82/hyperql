@@ -1,5 +1,5 @@
 {
-  "hyperql_version": "0.16",
+  "hyperql_version": "0.17",
   "part": "7_reference_appendices",
 
   "error_codes": {
@@ -25,10 +25,14 @@
     },
     "examples": [
       { "code": 1001, "name": "Syntax Error", "desc": "Unexpected token" },
+      { "code": 1030, "name": "Missing Purity Decorator", "desc": "DEFINE FUNCTION has no decorator" },
       { "code": 2001, "name": "Type Mismatch", "desc": "Expected X, got Y" },
       { "code": 2020, "name": "Ambiguous Role Constraint", "desc": "Field in constraint missing from allowed type" },
       { "code": 2025, "name": "Parameter Type Mismatch", "desc": "Query parameter type doesn't match expected type" },
       { "code": 2030, "name": "Ambiguous Function Call", "desc": "Multiple function signatures match, cannot resolve" },
+      { "code": 2054, "name": "Purity Violation", "desc": "Body or call graph exceeds declared decorator" },
+      { "code": 2055, "name": "Illegal Constraint Call", "desc": "@readonly or @nondeterministic UDF used in { constraints: [...] }" },
+      { "code": 2056, "name": "Illegal Aggregate Decorator", "desc": "DEFINE AGGREGATE FUNCTION marked non-@pure" },
       {
         "code": 2010,
         "name": "Undefined Role Reference",
@@ -90,6 +94,11 @@
       { "code": 3040, "name": "Circular Dependency", "desc": "Constraint cycle detected (use @deferred)" },
       { "code": 4010, "name": "Invalid Parameter Value", "desc": "Parameter value violates constraints" },
       { "code": 4011, "name": "Subquery Timeout", "desc": "@computed(TRAVERSE) exceeded timeout limit" },
+      { "code": 4020, "name": "Variable Not Found", "desc": "Variable used before declaration" },
+      { "code": 4021, "name": "Immutable Violation", "desc": "Reassignment of a CONST variable" },
+      { "code": 4022, "name": "Recursion Limit Exceeded", "desc": "Call stack exceeded max_recursion_depth" },
+      { "code": 4023, "name": "Loop Limit Exceeded", "desc": "Iteration count exceeded max_loop_iterations" },
+      { "code": 4024, "name": "UDF Runtime Error", "desc": "UDF threw an unhandled error in constraint context -> maps to [3015]" },
       {
         "code": 5002,
         "name": "Transaction Aborted",
@@ -504,6 +513,18 @@
   },
 
   "version_history": {
+    "0.17": {
+      "release_date": "2026-03-02",
+      "major_features": [
+        "Scripted User-Defined Functions (UDFs) via DEFINE FUNCTION",
+        "Mandatory Purity Decorators (@pure, @readonly, @nondeterministic)",
+        "Call-Graph Transitivity rule for strict static purity validation",
+        "Block-scoped variables (CONST, VAR) and control flow (WHILE, FOR...IN)",
+        "User-Defined Aggregate Functions (UDAFs) via DEFINE AGGREGATE FUNCTION",
+        "Integration of @pure UDFs into Node/Edge constraints and @computed fields",
+        "Interpreter safety limits (max_recursion_depth, max_loop_iterations)"
+      ]
+    },
     "0.16": {
       "release_date": "2026-01-25",
       "major_features": [
