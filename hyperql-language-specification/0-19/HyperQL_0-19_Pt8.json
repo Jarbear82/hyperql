@@ -1,0 +1,27 @@
+{
+  "hyperql_version": "0.19",
+  "part": "8_formal_grammar",
+  "ebnf_partial": {
+    "description": "Formal EBNF for core HyperQL v0.19 constructs. This is a normative partial grammar; a full EBNF is provided in the reference implementation documentation.",
+    "rules": [
+      "Statement      ::= (Definition | Mutation | Query | Transaction) ';'",
+      "Definition     ::= NamespaceDef | EnumDef | FieldDef | FunctionDef | RoleDef | StructDef | TraitDef | NodeDef | EdgeDef | ViewDef | IndexDef | SchemaDef | AccessRoleDef | AccessPolicyDef",
+      "Mutation       ::= CreateNode | CreateEdge | Merge | Set | Delete | DetachDelete | Migrate",
+      "Query          ::= MatchClause (OptionalMatch)* (Where)? (With)* (GroupBy)? (Having)? (OrderBy)? (Limit)? (Skip)? (Return)",
+      "Transaction    ::= 'BEGIN' (IsolationLevel)? (OnErrorContinue)? ';' | 'COMMIT;' | 'ROLLBACK;'",
+      "NamespaceDef   ::= 'DEFINE NAMESPACE' Identifier ('.' Identifier)* (Block)?",
+      "NodeDef        ::= 'DEFINE' ('ABSTRACT')? 'NODE' Identifier (Extends)? Body (ConstraintBlock)?",
+      "EdgeDef        ::= 'DEFINE' ('ABSTRACT')? 'EDGE' Identifier (Extends)? Body (ConstraintBlock)?",
+      "Extends        ::= 'EXTENDS' '[' Identifier (',' Identifier)* ']'",
+      "Body           ::= '{' (Entry (',' Entry)*)? '}'",
+      "Entry          ::= Identifier (':' Type)? ('@' Decorator)? ('DEFAULT' Expression)?",
+      "MatchClause    ::= 'MATCH' (Pattern | '[' Pattern (',' Pattern)* ']')",
+      "Pattern        ::= '(' Identifier (':' Identifier)? (PropertyFilter)? ')' | '(' Identifier (':' Identifier)? (PropertyFilter)? ')' '-' '[' Identifier (':' Identifier)? (PropertyFilter)? (RoleBinding)? ']' '->' '(' ... ')'",
+      "PropertyFilter ::= '{' Identifier (':' | '=') Expression (',' ...)* '}'",
+      "RoleBinding    ::= '{' Identifier '=>' Identifier (',' ...)* '}'",
+      "Return         ::= 'RETURN' ('DISTINCT')? (ReturnExpr (',' ReturnExpr)*)",
+      "ReturnExpr     ::= Expression ('AS' Identifier)? | TupleProjection | ObjectLiteral",
+      "TupleProjection ::= Identifier '{' Identifier (',' Identifier)* '}'"
+    ]
+  }
+}

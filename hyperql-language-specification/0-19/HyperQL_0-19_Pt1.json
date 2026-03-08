@@ -1,0 +1,726 @@
+{
+  "hyperql_version": "0.19",
+  "part": "1_schema_and_types",
+  "design_philosophy": "Strict Object-Oriented Graph Schema with Mandatory Global Fields, Explicit Composition, Namespaces, Migration, Global Definitions, Scripted UDFs, Advanced Querying, Execution-Oriented Model, and Data-Oriented Storage",
+  "syntax_rules": {
+    "termination": "All statements must be terminated by a semicolon (;).",
+    "trailing_commas": "Trailing commas are allowed in all list and struct contexts.",
+    "unified_syntax_model": {
+      "grammar": "Statement = Keyword Block? Block? ; \nBlock = [ Entry, Entry, ... ] -- array block, comma-separated | { Key: Value, ... } -- struct block, comma-separated \nEntry = Statement | Expression | Name",
+      "rules": [
+        "',' separates entries within [...] or {...} blocks. Trailing commas are allowed.",
+        "';' terminates a complete statement.",
+        "Whitespace is cosmetically optional. Removing all whitespace must leave an unambiguous token stream.",
+        "A single-statement form is semantically equivalent to a batch block with one entry and brackets elided. The two forms compile to identical ASTs."
+      ],
+      "parser_simplification_guarantee": "Balanced delimiters ([, ], {, }) enable unambiguous tokenization without whitespace heuristics. Tokenizers never need context to determine block boundaries, and whitespace can be stripped entirely while remaining unambiguous."
+    }
+  },
+  "storage_architecture": {
+    "model": "Type-Partitioned Hybrid Column/Row Storage",
+    "description": "Global fields are logical constraints (interfaces), not physical storage locations. Data is physically partitioned by Node Type using a Data-Oriented Design (DOD) approach.",
+    "implications": [
+      "Queries specifying a type (MATCH (p:Person)) are optimized to scan only that type's partition.",
+      "Global queries (MATCH (n) WHERE n.LastName = 'X') require scanning all partitions containing that field.",
+      "To optimize global searches, use the CROSS_TYPE keyword or DEFINE MATERIALIZED VIEW."
+    ],
+    "normative_spec": {
+      "tier_1_normative_semantics": {
+        "description": "All compliant implementations MUST satisfy these observable semantics.",
+        "requirements": [
+          { "requirement": "Type-partitioned storage", "spec": "A query specifying a type must not read partitions for unrelated types" },
+          { "requirement": "O(1) null checks", "spec": "Null checks must not access field storage for null-valued rows" },
+          { "requirement": "Late materialization", "spec": "Variable-width and @cold fields must not be accessed for rows eliminated by earlier predicates" },
+          { "requirement": "Index usage", "spec": "An available index that reduces scan scope must be used when its predicate matches" },
+          { "requirement": "@materialized read cost", "spec": "Must be equivalent to a stored property access — O(1)" },
+          { "requirement": "@cold isolation", "spec": "@cold fields must not degrade primary partition scan performance for queries that do not reference them" }
+        ]
+      },
+      "tier_2_reference_guidance": {
+        "description": "Reference implementation details; normative ONLY for the HyperQL reference implementation. Other backends may differ.",
+        "details": [
+          "Column-oriented contiguous arrays for fixed-width fields",
+          "Open-addressing hash sets for @unordered MANY roles",
+          "Struct-of-Arrays layout for Vector<N> fields",
+          "16/32-byte SIMD alignment for vector fields",
+          "Sorted (node_id, edge_id) pairs in role index tables"
+        ]
+      },
+      "0.1_hybrid_model": {
+        "fixed_width_fields": "Int, Int32, Float, Bool, Date, UUID, Decimal, Enum, Flags, Vector are stored column-oriented in contiguous arrays.",
+        "variable_width_fields": "String, List<T> are stored in a variable-length heap. Column store holds offset/length pairs. Filtering avoids heap access; projection accesses it only for rows surviving filters (Late Materialization)."
+      },
+      "0.2_struct_inline_guarantee": "Struct fields are stored physically inline within the containing node's column store. No heap allocation or pointer indirection occurs for Struct access, providing maximum data locality.",
+      "0.3_null_bitmap": "Each partition maintains a null bitmap (one bit per nullable field per row). Null-checking (IS NULL, etc.) consults only the bitmap, never accessing field storage for null rows.",
+      "0.4_many_role_storage": {
+        "@ordered": "Dynamic array (O(n) scan, O(1) position access)",
+        "@unordered": "Open-addressing hash set (O(1) average membership test)"
+      },
+      "0.5_edge_storage": "Dual-storage approach: Edge Partition stores edge fields column-oriented. Role Index Tables (one per role per edge type) store sorted (node_id, edge_id) pairs for O(log n) traversal.",
+      "0.6_vector_simd_alignment": "Vector<N> fields must be 16/32-byte aligned and use Struct-of-Arrays layout for SIMD-accelerated similarity operations.",
+      "0.7_cold_decorator": "Fields marked @cold are stored in a secondary partition. Accessing them triggers keyed lookups, avoiding overhead for primary query patterns.",
+      "0.8_materialized_preference": "@computed(TRAVERSE) @materialized is strongly preferred for production. It moves cost from read-time (graph scatter) to write-time (O(1) column lookup).",
+      "0.9_materialized_view": "Creates dedicated cross-type partitions indexed by specified fields to optimize CROSS_TYPE queries from O(partitions * rows) to O(log n).",
+      "0.10_trigger_derivation": "Triggers for @materialized fields are derived statically from the QueryPlan. Write operations (CREATE, SET, DELETE) on referenced edge types trigger atomic recomputation of affected nodes.",
+      "0.11_cold_index_interaction": {
+        "summary": "An index on a @cold field is built against the secondary partition. Lookups via the index avoid partition scans and do not trigger WARN-PERF-003.",
+        "indexed_predicate": "When a @cold field predicate is served by its index (narrow via index, then fetch from secondary partition only for surviving rows), WARN-PERF-003 is not emitted. This access pattern is explicitly legitimate and efficient.",
+        "unindexed_predicate": "WARN-PERF-003 fires when a @cold field appears in an unindexed predicate context — that is, when the engine must scan the secondary partition directly to evaluate the filter. The warning signals that adding an index or restructuring the query should be considered.",
+        "examples": [
+          "MATCH (a:Article) WHERE a.body MATCHES $q -- @cold with FULLTEXT index: efficient, no WARN-PERF-003",
+          "MATCH (a:Article) WHERE LENGTH(a.body) > 1000 -- @cold without index on LENGTH(): WARN-PERF-003"
+        ]
+      }
+    }
+  },
+  "hoisting_and_validation": {
+    "guarantee": "All names are collected before references are resolved. Definition order does not affect validity.",
+    "passes": [
+      "Pass 1 — Collection: Register all names (ENUM, FIELD, STRUCT, TRAIT, ROLE, NODE, EDGE, FUNCTION, INDEX)",
+      "Pass 2 — Type checking: Resolve all type references. v0.19 verifies matching DEFINE FIELD exists for all body references and rejects inline types [1052].",
+      "Pass 3 — Constraints: Validate expressions against resolved types",
+      "Pass 4 — Edges: Validate role references in DEFINE EDGE",
+      "Pass 5 — Indexes: Validate DEFINE INDEX targets"
+    ]
+  },
+  "inheritance_model": {
+    "name": "Composable Polymorphism",
+    "description": "EXTENDS implements field composition via global field definitions. Multiple inheritance cannot create conflicts because all fields reference global DEFINE FIELD declarations.",
+    "decorator_semantics": "Decorators are properties of global field definitions, not inheritance paths. A field inherited from multiple parents retains decorators from its global definition.",
+    "diamond_problem": "Resolved by design - no conflicts possible when all fields reference the same global definition."
+  },
+  "terminology": {
+    "field": "Schema-level property definition (DEFINE FIELD)",
+    "property": "Instance-level data value (used interchangeably with field in queries)",
+    "node_type": "Schema definition via DEFINE NODE",
+    "edge_type": "Schema definition via DEFINE EDGE",
+    "hyperedge": "Edge connecting multiple nodes via roles (HyperQL's primary edge model)",
+    "role": "Named position in a hyperedge connecting to nodes",
+    "udf": "User-Defined Function (Scripted logic)",
+    "udaf": "User-Defined Aggregate Function",
+    "materialized_view": "Pre-computed cross-type index partition"
+  },
+  "schema_management": {
+    "definitions": [
+      {
+        "keyword": "DEFINE NAMESPACE",
+        "syntax": "DEFINE NAMESPACE Name.Space [ ... ];",
+        "description": "Declares the namespace for the current schema. Supports dot-hierarchy naming (Core.Game.Combat). Block form implies single-file containment; preamble form implies multi-file merging.",
+        "example": "DEFINE NAMESPACE Core.Game;",
+        "notes": [
+          "Cross-namespace references require explicit IMPORT.",
+          "Multiple files may share a namespace; definitions are merged additively.",
+          "v0.19: STRICT_MODE is retired; all schemas must use mandatory global field definitions."
+        ]
+      },
+      {
+        "keyword": "DEFINE ENUM",
+        "syntax": "DEFINE ENUM EnumName<TYPE?> { CONSTANT = VALUE?, ... }",
+        "description": "Defines a return set of named constants. v0.18 introduces typed variants for ordering, exact decimals, and bitflags. v0.19 resolution pass converts shorthand (.Identifier) to fully qualified variants during type-checking.",
+        "variants": {
+          "plain": "Unordered string-keyed constants (v0.17 default).",
+          "INT": "Integer-backed. Enables range queries. All constants must have explicit = value.",
+          "DECIMAL": "Fixed-point decimal (requires 'd' suffix). Exact equality safe. Range enabled.",
+          "STRING": "Explicit string values for external interop/serialization.",
+          "FLAGS": "Bitfield (max 64 constants). Enables set operations (|, &, ~, IN). Backing uN type optimized automatically."
+        },
+        "rules": [
+          "Backing values are identity markers, NOT arithmetic operands. Use case-extraction or primitive fields for math.",
+          "Duplicate values within an enum are forbidden [2061].",
+          "FLAGS constants must not have manual assignments [2062]."
+        ],
+        "example": "DEFINE ENUM Priority<INT> { LOW = 1, MEDIUM = 2, HIGH = 3 };",
+        "error_codes": {
+          "2060": "Partial Enum Values",
+          "2061": "Duplicate Enum Value",
+          "2062": "Illegal Flags Value",
+          "2063": "Flags Ceiling Exceeded",
+          "2064": "Decimal Literal Required",
+          "2065": "Unknown Enum Backing Type"
+        }
+      },
+      {
+        "keyword": "DEFINE FIELD",
+        "syntax": "DEFINE FIELD FieldName: DataType? [@decorator] [DEFAULT expression];",
+        "description": "Mandatory global property definition. Every property used in a type body must be declared here first.",
+        "example": "DEFINE FIELD email: String? @unique @index DEFAULT \"pending@example.com\";",
+        "notes": [
+          "Fields are non-null by default. Append `?` to type for nullable fields.",
+          "Decorators (@unique, @index, @required, @readonly, @cold) are structural metadata.",
+          "DEFAULT expressions support @pure and @nondeterministic (NOW(), UUID()) functions.",
+          "Field-level constraints are NOT supported in v0.19 - use node-level constraints instead.",
+          "Mandatory: Every field in a NODE, EDGE, STRUCT, or TRAIT must have a matching DEFINE FIELD."
+        ],
+        "default_expr_union": {
+          "description": "DEFAULT values are formally typed as a DefaultExpr union. Each variant has distinct validation rules applied at definition time.",
+          "variants": [
+            {
+              "name": "LiteralDefault",
+              "example": "DEFAULT 0, DEFAULT \"pending\"",
+              "validation": "Type must match field type exactly. Validated at definition time."
+            },
+            {
+              "name": "NowDefault",
+              "example": "DEFAULT NOW()",
+              "validation": "Valid only on Date and DateTime fields. Always permitted regardless of other field decorators."
+            },
+            {
+              "name": "UuidDefault",
+              "example": "DEFAULT UUID()",
+              "validation": "Valid only on UUID fields. Always permitted."
+            },
+            {
+              "name": "PureUdfDefault",
+              "example": "DEFAULT myPureFunction()",
+              "validation": "Called function must be declared @pure. @readonly and @nondeterministic UDFs are forbidden as defaults. Validated at definition time via purity check."
+            },
+            {
+              "name": "EnumVariantDefault",
+              "example": "DEFAULT AccountStatus.PENDING",
+              "validation": "Must be a valid variant of the field's declared enum type. Validated at definition time."
+            }
+          ]
+        },
+        "default_resolution_order": "1. Explicit value in CREATE > 2. Node/Edge override > 3. Global Field default > 4. null (if nullable) > 5. Error [3015]"
+      },
+      {
+        "keyword": "DEFINE FUNCTION",
+        "syntax": "DEFINE FUNCTION @purity Name(params): ReturnType { body };",
+        "description": "Defines a scripted User-Defined Function (UDF). Requires a mandatory purity decorator (@pure, @readonly, @nondeterministic).",
+        "example": "DEFINE FUNCTION @pure FullName(first: String, last: String): String { RETURN first + \" \" + last; };",
+        "notes": [
+          "Purity is statically validated at definition time.",
+          "Call-graph transitivity applies (e.g., @pure cannot call @readonly).",
+          "UDFs are interpreted; performance warnings apply in high-volume queries.",
+          "v0.19: Function body must have at least one reachable RETURN path [1051]."
+        ]
+      },
+      {
+        "keyword": "DEFINE AGGREGATE FUNCTION",
+        "syntax": "DEFINE AGGREGATE FUNCTION @pure FunctionName(params): ReturnType { STATE [ slot_name: SlotType = initial_expr, ... ]; ACCUMULATE [ slot_name = accumulate_expr, ... ]; FINALIZE finalize_expr; };",
+        "description": "Defines a User-Defined Aggregate Function (UDAF). Mandatory structure includes STATE, ACCUMULATE, and FINALIZE clauses.",
+        "example": "DEFINE AGGREGATE FUNCTION @pure WeightedAvg(val: Float, weight: Float): Float { STATE [ total_weighted: Float = 0.0, total_weight: Float = 0.0 ]; ACCUMULATE [ total_weighted = total_weighted + (val * weight), total_weight = total_weight + weight ]; FINALIZE IF total_weight == 0.0 THEN 0.0 ELSE total_weighted / total_weight; };",
+        "clauses": {
+          "STATE": "Declares the accumulator. Each slot has a name, type, and mandatory initial value (literals or @pure calls only). Must be primitive or Struct<T>.",
+          "ACCUMULATE": "Evaluated once per input row. Every slot must be assigned exactly once. Parameters and current slot values are in scope.",
+          "FINALIZE": "Evaluated once after processing. Only STATE slots are in scope. Parameters are NOT in scope."
+        },
+        "scope_rules": {
+          "STATE initial": "Literals, global @pure functions",
+          "ACCUMULATE": "Input parameters, STATE slot names (current values)",
+          "FINALIZE": "STATE slot names (final values) only"
+        },
+        "notes": [
+          "Must be marked @pure [2056].",
+          "FINALIZE is always called exactly once, even for empty input sets (using initial STATE).",
+          "Graph-referencing types are forbidden in STATE slots."
+        ]
+      },
+      {
+        "keyword": "DEFINE ROLE",
+        "syntax": "DEFINE ROLE RoleName ALLOWS Type: { constraints } | TypeA: { ... }, TypeB: { ... }",
+        "description": "Defines a global role interface with optional constraints that must be satisfied for any node to fill this role in any edge. ABSTRACT node types ARE permitted in ALLOWS lists [Decision 7].",
+        "batch_syntax": "DEFINE ROLE [ role1, role2 ] ALLOWS Type; | DEFINE ROLE [ r1 ALLOWS T1, r2 ALLOWS T2 ];",
+        "constraint_forms": {
+          "unified": {
+            "syntax": "ALLOWS [TypeA, TypeB]: { .field == value }",
+            "description": "Constraints that apply to all allowed types. Referenced fields must exist on ALL types with compatible types.",
+            "example": "DEFINE ROLE licensed_driver ALLOWS [Person, AI]: { .licensed == true };"
+          },
+          "type_specific": {
+            "syntax": "ALLOWS TypeA: { .field == value }, TypeB: { ... }",
+            "description": "Type-specific constraints. Each type can have different validation rules.",
+            "example": "DEFINE ROLE driver ALLOWS Person: { .age >= 16, .licensed == true }, AI: { .version >= \"2.0\" };"
+          }
+        },
+        "error_codes": {
+          "2020": "Field referenced in unified constraint does not exist on all allowed types",
+          "2021": "Type mismatch in unified constraint - field has incompatible types across allowed types"
+        },
+        "constraint_context": "Can reference allowed type fields via .field or Type.field notation",
+        "example": "DEFINE ROLE driver ALLOWS Person: { .age >= 16 }, AI: { .version >= \"2.0\" };",
+        "notes": [
+          "All roles must be explicitly defined. Ad-hoc inline roles are forbidden.",
+          "Multi-Type Resolution: Fields referenced in constraints must exist on ALL allowed types unless disambiguated with IS operator. Fails with [2020] otherwise.",
+          "Polymorphic Role Typing: ABSTRACT node types ARE permitted in ALLOWS lists. This enables new subtypes to automatically fill roles without schema migrations.",
+          "Constraints block is optional. Omit if role only restricts types without additional validation."
+        ]
+      },
+      {
+        "keyword": "DEFINE STRUCT",
+        "syntax": "DEFINE STRUCT StructName { FieldRef, ... }",
+        "description": "Defines a value object container. Structs have no ID, cannot be connected to edges, and exist only embedded within Nodes. v0.19: Requires bare field name references (FieldRef) only [1052].",
+        "example": "DEFINE STRUCT Address { Street, City, ZipCode }"
+      },
+      {
+        "keyword": "DEFINE TRAIT",
+        "syntax": "DEFINE TRAIT TraitName { FieldRef, ... }",
+        "description": "Defines a composable set of properties (Interface/Mixin). Traits confer type labels when used via EXTENDS. v0.19: Requires bare field name references (FieldRef) only [1052].",
+        "example": "DEFINE TRAIT Nameable { Name }"
+      },
+      {
+        "keyword": "DEFINE NODE",
+        "syntax": "DEFINE NODE NodeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
+        "description": "Defines a strict Node Type with optional entity-level constraints. Supports multiple inheritance via EXTENDS and node-level DEFAULT overrides. v0.19: Requires bare field references (FieldRef) for storage fields [1052].",
+        "batch_syntax": "DEFINE NODE [ NodeA { ... }, ABSTRACT NodeB { ... } ];",
+        "entry_types": {
+          "FieldRef": "Bare field name reference (must match a DEFINE FIELD).",
+          "FieldRef DEFAULT expr": "Field name reference with a type-local default override.",
+          "ComputedFieldRef": "Identifier : ReturnType @computed(...) - inline computed field declaration."
+        },
+        "constraint_syntax": {
+          "array_form": {
+            "syntax": "{ constraints: [expr1, expr2, ...] }",
+            "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
+            "example": "{ constraints: [.age >= 0, .age <= 150, .name != \"\"] }"
+          },
+          "object_form": {
+            "syntax": "{ constraints: { name1: expr1, name2: expr2, ... } }",
+            "description": "Named constraints for better error reporting and documentation.",
+            "example": "{ constraints: { valid_age: .age >= 0 AND .age <= 150, has_name: .name != \"\" } }"
+          }
+        },
+        "constraint_name_scoping": {
+          "scope": "Constraint names are unique per type, not globally. Two different node types may each define a constraint named 'valid_age' without conflict.",
+          "anonymous_names": "Anonymous constraints (defined in the array form without a name key) receive engine-generated names in the format __anon_N where N is the zero-based index of the constraint within the type's constraint list. These names are used in error reporting ([3011], [3012], [3013]) and introspection.",
+          "drop_by_name": "DROP CONSTRAINT name is a valid operation in ALTER TYPE statements. The constraint is identified by name within the scope of the type being altered.",
+          "example": "DEFINE NODE Person { age } { constraints: [.age >= 0, { valid_age: .age <= 150 }] }; -- anonymous gets __anon_0, named is 'valid_age'. ALTER TYPE Person DROP CONSTRAINT valid_age;"
+        },
+        "constraint_context": "Can reference 'this' and all node fields, including @computed properties. Field references in constraints use dot prefix (.field).",
+        "example": "DEFINE NODE Person { id, name, age, status DEFAULT AccountStatus.PENDING } { constraints: [.age >= 0, .age <= 150] };",
+        "notes": [
+          "Constraints block is optional. Omit if no entity-level validation is needed.",
+          "Node-level DEFAULT overrides global field defaults for that specific type.",
+          "Batch Modifiers: ABSTRACT is valid as an inline modifier within a batch NODE [...] sub-block."
+        ]
+      },
+      {
+        "keyword": "DEFINE ABSTRACT NODE",
+        "syntax": "DEFINE ABSTRACT NODE NodeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
+        "description": "Defines a Node Type that can be extended but never instantiated directly. Supports batch syntax. Permitted in ALLOWS lists. v0.19: Requires bare field references (FieldRef) only [1052].",
+        "batch_syntax": "DEFINE ABSTRACT NODE [ Entity { ... }, Asset { ... } ];",
+        "constraint_name_scoping": {
+          "scope": "Constraint names are unique per type.",
+          "anonymous_names": "Anonymous constraints receive __anon_N names.",
+          "drop_by_name": "DROP CONSTRAINT name is valid in ALTER statements."
+        },
+        "example": "DEFINE ABSTRACT NODE Entity { Id, CreatedAt } { constraints: [CreatedAt <= NOW()] };"
+      },
+      {
+        "keyword": "DEFINE ABSTRACT EDGE",
+        "syntax": "DEFINE ABSTRACT EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
+        "description": "Defines an Edge Type that can be extended but never instantiated directly. v0.19: Requires bare field references (FieldRef) and inline roles only [1052].",
+        "constraint_name_scoping": {
+          "scope": "Constraint names are unique per type.",
+          "anonymous_names": "Anonymous constraints receive __anon_N names.",
+          "drop_by_name": "DROP CONSTRAINT name is valid in ALTER statements."
+        },
+        "example": "DEFINE ABSTRACT EDGE Transaction { TransactionDate }"
+      },
+      {
+        "keyword": "DEFINE EDGE",
+        "syntax": "DEFINE EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
+        "description": "Defines a strict Hyperedge with optional relationship-level constraints. Supports multiple inheritance and strictly typed Roles with extended cardinality. v0.19: Roles are inline; fields are bare references (FieldRef) [1052].",
+        "batch_syntax": "DEFINE EDGE [ EdgeA { ... }, EdgeB { ... } ];",
+        "entry_types": {
+          "FieldRef": "Bare field name reference.",
+          "RoleRef": "RoleName : Direction (Cardinality) - inline role declaration.",
+          "ComputedFieldRef": "Identifier : ReturnType @computed(...) - inline computed declaration."
+        },
+        "role_resolution": "Role names must exactly match a DEFINE ROLE statement. Ad-hoc roles are forbidden.",
+        "cardinality": "Extended cardinality supports exact (N), unbounded (*), and range (N..M) counts. Legacy ONE (1) and MANY (*) remain as aliases.",
+        "constraint_syntax": {
+          "array_form": {
+            "syntax": "{ constraints: [expr1, expr2, ...] }",
+            "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
+            "example": "{ constraints: [.husband != .wife, .date <= NOW()] }"
+          },
+          "object_form": {
+            "syntax": "{ constraints: { name1: expr1, name2: expr2, ... } }",
+            "description": "Named constraints for better error reporting and documentation.",
+            "example": "{ constraints: { different_people: .husband != .wife, valid_date: .date <= NOW() } }"
+          }
+        },
+        "constraint_name_scoping": {
+          "scope": "Constraint names are unique per type.",
+          "anonymous_names": "Anonymous constraints receive __anon_N names.",
+          "drop_by_name": "DROP CONSTRAINT name is valid in ALTER statements."
+        },
+        "constraint_context": "Can reference all role variables and edge fields, including @computed properties. Field references use dot prefix.",
+        "example": "DEFINE EDGE Marriage { husband <- (1), wife <- (1), date DEFAULT NOW() } { constraints: [.husband != .wife, .date <= NOW()] };",
+        "notes": [
+          "Optional Roles: Use (0..1) cardinality. Legacy '?' suffix is deprecated [WARN-SCHEMA-002].",
+          "Cardinality Enforcement: Bounds are enforced on CREATE and all SET += / -= mutations [3014].",
+          "Directionality: <- indicates Source, -> indicates Target, <-> indicates Bidirectional (Symmetric).",
+          "Bidirectional Roles (<->): Semantically symmetric. Traversal matches both directed (->, <-) and undirected (-) patterns. Role access (edge.role) returns all bound nodes.",
+          "Edge Field Defaults: DEFAULT on edge fields overrides global field defaults.",
+          "Validation: Requires two+ distinct roles OR one role with cardinality > 1."
+        ]
+      },
+      {
+        "keyword": "DEFINE [mixed]",
+        "syntax": "DEFINE [ ENUM [...], FIELD [...], ROLE [...], NODE [...], EDGE [...], INDEX [...] ];",
+        "description": "Anonymous mixed definition block. Hoisting applies across the entire block; definition order does not affect validity.",
+        "example": "DEFINE [ FIELD [ id: UUID ], NODE [ Person { id } ] ];"
+      },
+      {
+        "keyword": "DEFINE SCHEMA",
+        "syntax": "DEFINE SCHEMA SchemaName [ ...batch definitions... ];",
+        "description": "Creates a named, versionable, and importable schema unit. Preferred for modular architectures.",
+        "example": "DEFINE SCHEMA Family [ FIELD [ ... ], NODE [ ... ], EDGE [ ... ] ];"
+      },
+      {
+        "keyword": "DEFINE MATERIALIZED VIEW",
+        "syntax": "DEFINE MATERIALIZED VIEW ViewName FOR [Types] ON [Fields] INDEX [Fields];",
+        "description": "Creates a pre-computed cross-type index partition to optimize CROSS_TYPE queries.",
+        "example": "DEFINE MATERIALIZED VIEW PersonSearch FOR [Person, Employee] ON [LastName] INDEX [LastName];",
+        "error_codes": {
+          "6020": "Materialized View Maintenance Failed",
+          "6021": "Materialized View Stale"
+        }
+      },
+      {
+        "keyword": "DEFINE INDEX",
+        "syntax": "DEFINE INDEX IndexName ON NodeType (Field1, Field2, ...); | DEFINE INDEX [ ... ];",
+        "description": "Creates a composite index on multiple fields for optimized multi-field queries. Supports batch syntax.",
+        "batch_syntax": "DEFINE INDEX [ Index1 ON Type1 (F1), Index2 ON Type2 (F2, F3) ];",
+        "example": "DEFINE INDEX NameIndex ON Person (LastName, FirstName);"
+      }
+    ],
+    "migration": [
+      {
+        "keyword": "ALTER",
+        "syntax": "ALTER NODE|EDGE TypeName { ADD FieldName, DROP FieldName, RENAME FieldName TO NewFieldName, ADD CONSTRAINT Name: Expression }",
+        "description": "Modifies an existing node/edge definition. v0.19: Triggers synchronous revalidation of stored QueryPlans [Decision 10].",
+        "notes": "Adding a constraint via ALTER is strict. All existing data must satisfy the new rule or the operation fails with [3030]."
+      },
+      {
+        "keyword": "ALTER SCHEMA",
+        "syntax": "ALTER SCHEMA SchemaName [ ADD FieldRef | NodeRef | EdgeRef | RoleRef, DROP FieldRef | NodeRef | EdgeRef | RoleRef, RENAME OldName TO NewName ];",
+        "description": "Modifies a schema unit. Triggers synchronous QueryPlan revalidation for all plans referencing any type within the schema. Dropping a construct referenced elsewhere fails with [3031].",
+        "example": "ALTER SCHEMA Family [ ADD NODE Employee EXTENDS Person { employee_id, hire_date } ];"
+      },
+      {
+        "keyword": "VALIDATE SCHEMA",
+        "syntax": "VALIDATE SCHEMA SchemaName;",
+        "description": "Non-destructive. Validates all constraints, field references, and inter-type consistency within the schema against existing data. Returns SchemaValidationResult.",
+        "returns": "SchemaValidationResult"
+      },
+      {
+        "keyword": "VALIDATE MIGRATION",
+        "syntax": "VALIDATE MIGRATION variable TO NewType [MAP {...}] [DEFAULTS {...}]",
+        "description": "Non-destructive preview of migration. Checks field mapping, default application, and edge cascade compatibility. Edge cascade rule: target type must be ALLOWED by all existing connected roles.",
+        "returns": "MigrationValidationResult"
+      },
+      {
+        "keyword": "MIGRATE",
+        "syntax": "MIGRATE variable TO NewType [MAP { old_field: new_field, DROP [field1, field2] }] [DEFAULTS { field: value }]",
+        "description": "Type conversion operation. Destructive by design. Evaluates edge cascade compatibility: all connected edges must satisfy role ALLOWS lists and role constraints for the target type. Fails with [3012] if any edge violation occurs."
+      }
+    ],
+    "decorators": [
+      {
+        "name": "@computed",
+        "scope": "Logic",
+        "description": "Defines a virtual property calculated at Read-Time using the Standard Expression Language. v0.19 internal representation uses ComputedSpec union: Expression(scalar expr) or Traverse(QueryPlan).",
+        "syntax": "@computed(EXPRESSION)",
+        "example": "full_name: String @computed(this.FirstName + \" \" + this.LastName)"
+      },
+      {
+        "name": "@computed(TRAVERSE)",
+        "scope": "Logic",
+        "description": "Defines a virtual property calculated via graph traversal query.",
+        "syntax": "@computed(TRAVERSE) { QUERY }",
+        "evaluation_model": "Per-Row Memoization within a QueryPlan context.",
+        "details": "Subquery executes once per node, on first access within a query. Cached for the duration of that query execution only.",
+        "opt_out": "Use @volatile to disable caching.",
+        "example": "friend_count: Int @computed(TRAVERSE) { MATCH (this)-[:Friendship]-(f) RETURN COUNT(f) }",
+        "performance_warning": {
+          "severity": "HIGH",
+          "issue": "Using in WHERE clauses forces N executions. Production schemas should use @materialized. [WARN-PERF-001]"
+        }
+      },
+      {
+        "name": "@pure",
+        "scope": "Function",
+        "description": "Mandatory decorator for UDFs. Logic and arithmetic only. No graph access or non-determinism. Safe for constraints and DEFAULT expressions."
+      },
+      {
+        "name": "@readonly",
+        "scope": "Function",
+        "description": "Mandatory decorator for UDFs. May perform graph traversal (MATCH). Deterministic. Safe for computed(TRAVERSE) and queries. Forbidden in DEFAULT expressions."
+      },
+      {
+        "name": "@nondeterministic",
+        "scope": "Function",
+        "description": "Mandatory decorator for UDFs. May use non-deterministic built-ins like NOW() or UUID(). Not safe for constraints or memoized caching. Safe for DEFAULT expressions."
+      },
+      {
+        "name": "@deferred",
+        "scope": "Constraint",
+        "description": "Defers constraint validation until transaction commit. Forbidden on anonymous constraints in array form. Forbidden on DEFINE ROLE constraints [1001]. Evaluation failure at commit rolls back the transaction.",
+        "placement": "May be applied to an individual named constraint or to an entire constraint block.",
+        "example": "{ constraints: { mutual_spouse: ... } @deferred }"
+      },
+      {
+        "name": "@volatile",
+        "scope": "Logic",
+        "description": "Disables per-row memoization for @computed(TRAVERSE) fields. Operationally operates independently of session isolation; always reads the most recently written value, bypassing snapshot boundaries. Appropriate only when near-real-time values are acceptable and read cost is preferable to stale snapshots. Mutually exclusive with @materialized [2072].",
+        "contraindications": [
+          "Do not use in constraint expressions.",
+          "Do not use when query correctness depends on snapshot consistency.",
+          "Do not combine with @materialized [error 2072]."
+        ]
+      },
+      {
+        "name": "@materialized",
+        "scope": "Performance",
+        "description": "Pre-computes and caches results of @computed(TRAVERSE) properties, moving cost from read-time to write-time. STRONGLY PREFERRED for production schemas. v0.19: Recomputed on write triggers derived from the QueryPlan. Mutually exclusive with @volatile [2072]. Forbidden on @computed(EXPRESSION) fields [2073].",
+        "supported_types": [
+          "PATH",
+          "Int",
+          "Float",
+          "String",
+          "Bool",
+          "List<T>",
+          "any computed type"
+        ],
+        "update_trigger": "Recomputed on write operations affecting the traversal pattern",
+        "performance_notes": {
+          "write_cost": "Recalculation on relevant mutation",
+          "read_cost": "O(1) lookup, same as regular property access",
+          "storage_cost": "Cached value stored per node in primary column store",
+          "recommendation": "Use for frequently-read aggregations; schema design signal for WHERE clause performance."
+        },
+        "examples": [
+          "friend_count: Int @materialized @computed(TRAVERSE) { ... }",
+          "shortest_path: PATH @materialized @computed(TRAVERSE) { ... }",
+          "tag_list: List<String> @materialized @computed(TRAVERSE) { ... }"
+        ]
+      },
+      {
+        "name": "@cold",
+        "scope": "Storage",
+        "description": "Indicates a field is accessed infrequently. Stored in a secondary partition separate from primary column store. v0.19 allows combined @index usage without WARN-PERF-003 for indexed lookups.",
+        "performance_notes": "Reduces primary scan overhead. Using in unindexed WHERE clause triggers [WARN-PERF-003].",
+        "example": "body: String? @cold"
+      },
+      {
+        "name": "@display",
+        "scope": "UI / Metadata",
+        "description": "Indicates this property is the primary human-readable label for the entity."
+      },
+      {
+        "name": "@unique",
+        "scope": "Constraint",
+        "description": "Enforces global uniqueness. Can be applied to fields or Edge Roles (composite uniqueness). v0.19: Edge constraints represented via UniqueConstraintMember (role/field).",
+        "syntax": "@unique | @unique(role1, role2, ..., field1, ...)",
+        "notes": "Required for Role-Based MERGE on hyperedges. Composite uniqueness indexes can mix bound node IDs (roles) and field values (fields) in a single declaration."
+      },
+      {
+        "name": "@required",
+        "scope": "Constraint",
+        "description": "Enforces non-null existence."
+      },
+      {
+        "name": "@readonly",
+        "scope": "Logic",
+        "description": "Property is immutable after creation."
+      },
+      {
+        "name": "@ordered",
+        "scope": "Collection",
+        "description": "For (MANY) cardinality roles. Preserves insertion order. Stores as dynamic array.",
+        "default": "true"
+      },
+      {
+        "name": "@unordered",
+        "scope": "Collection",
+        "description": "For (MANY) cardinality roles. Set semantics. Stores as open-addressing hash set."
+      }
+    ],
+    "index_types": [
+      {
+        "name": "@index",
+        "scope": "Performance",
+        "description": "Creates an index for fast lookups. Default is B-Tree index.",
+        "syntax": "@index | @index(type) | @index(type, options)",
+        "types": [
+          {
+            "type": "default (B-tree)",
+            "syntax": "@index",
+            "use_case": "General-purpose range and equality queries"
+          },
+          {
+            "type": "hash",
+            "syntax": "@index(hash)",
+            "use_case": "Exact-match equality queries only."
+          },
+          {
+            "type": "vector",
+            "syntax": "@index(vector, metric=\"cosine\"|\"euclidean\"|\"dot\")",
+            "use_case": "Similarity search for embeddings. Requires SIMD alignment.",
+            "default_metric": "cosine"
+          },
+          {
+            "type": "fulltext",
+            "syntax": "@index(fulltext)",
+            "use_case": "Full-text search."
+          }
+        ]
+      }
+    ],
+    "decorator_vs_constraint_distinction": {
+      "decorators": {
+        "purpose": "Structural metadata, indexing, and storage hints",
+        "examples": [
+          "@unique",
+          "@index",
+          "@required",
+          "@readonly",
+          "@cold",
+          "@pure"
+        ],
+        "evaluation": "Enforced by storage layer and type system",
+        "scope": "Single field, function, or structural property"
+      },
+      "constraints": {
+        "purpose": "Business logic validation",
+        "syntax": "{ constraints: [...] } or { constraints: {...} }",
+        "evaluation": "Evaluated at write-time (CREATE, UPDATE, ALTER)",
+        "scope": "Cross-field validation, entity invariants, relationship rules"
+      },
+      "key_difference": "@unique is a structural guarantee (creates index), not a business rule. Constraints express domain logic."
+    },
+    "data_types": {
+      "primitives": [
+        {
+          "name": "String",
+          "desc": "UTF-8 text content."
+        },
+        {
+          "name": "Int",
+          "desc": "64-bit signed integer."
+        },
+        {
+          "name": "Int32",
+          "desc": "32-bit signed integer."
+        },
+        {
+          "name": "Float",
+          "desc": "64-bit floating point."
+        },
+        {
+          "name": "Bool",
+          "desc": "Boolean true/false."
+        },
+        {
+          "name": "Date",
+          "desc": "ISO-8601 timestamp (UTC)."
+        },
+        {
+          "name": "Vector<N>",
+          "desc": "Fixed-dimension float array. SIMD aligned."
+        },
+        {
+          "name": "UUID",
+          "desc": "RFC 4122 UUID Version 7 (time-ordered, sortable)."
+        },
+        {
+          "name": "Decimal(P, S)",
+          "desc": "Fixed-precision decimal. Literal syntax: 99.99d",
+          "examples": [
+            "99.99d",
+            "DECIMAL(\"123.45\")"
+          ]
+        },
+        {
+          "name": "Interval",
+          "desc": "Duration of time."
+        },
+        {
+          "name": "Time",
+          "desc": "Time of day."
+        }
+      ],
+      "complex": [
+        {
+          "name": "List<T>",
+          "desc": "Variable-length ordered collection."
+        },
+        {
+          "name": "Enum<Name>",
+          "desc": "Restricted value set. Supports typed variants (INT, DECIMAL, STRING). v0.19 resolution pass converts shorthands."
+        },
+        {
+          "name": "Flags<Name>",
+          "desc": "Bitfield of combinable constants. Enables |, &, ~, IN operators."
+        },
+        {
+          "name": "Struct<Name>",
+          "desc": "Embedded object. Stored physically inline."
+        }
+      ],
+      "cardinality": [
+        {
+          "name": "Exact",
+          "syntax": "(N)",
+          "desc": "Exactly N target nodes (N >= 1)."
+        },
+        {
+          "name": "Unbounded",
+          "syntax": "(*)",
+          "desc": "1 or more target nodes (Legacy MANY alias)."
+        },
+        {
+          "name": "Range",
+          "syntax": "(N..M)",
+          "desc": "Between N and M nodes. N >= 0. M can be * for unbounded."
+        },
+        {
+          "name": "Optional",
+          "syntax": "(0..1)",
+          "desc": "Zero or one target node. Replaces legacy '?' suffix."
+        }
+      ],
+      "special": [
+        {
+          "name": "PATH",
+          "desc": "Result type from variable-length path queries. v0.19: Formally represented as a Path struct containing a sequence of PathSegments.",
+          "path_segment_struct": {
+            "fields": [
+              { "name": "node",     "type": "NodeId",       "note": "The node at this position in the path." },
+              { "name": "via_edge", "type": "?EdgeId",      "note": "The edge used to arrive at this node. null for the first segment (path origin)." },
+              { "name": "via_role", "type": "?RoleHandle",  "note": "The role traversed on via_edge. null for the first segment." }
+            ]
+          },
+          "path_struct": {
+            "fields": [
+              { "name": "segments",   "type": "[]PathSegment", "desc": "The full ordered sequence of segments." },
+              { "name": "total_cost", "type": "f64",            "desc": "Total accumulated weight. 0.0 for unweighted paths." },
+              { "name": "length",     "type": "u32",            "desc": "Number of edges traversed (segment count minus one)." }
+            ]
+          },
+          "field_accessors": {
+            "path.segments":   "[]PathSegment — the full sequence",
+            "path.nodes":      "[]NodeId — shorthand for all node values across segments",
+            "path.edges":      "[]EdgeId — shorthand for all non-null via_edge values",
+            "path.length":     "u32 — number of edges in the path",
+            "path.total_cost": "f64 — total accumulated weight",
+            "path.start":      "NodeId — first node in the path",
+            "path.end":        "NodeId — last node in the path"
+          },
+          "predicate_semantics": "ALL/ANY/NONE accept path.nodes (binds NodeId), path.edges (binds EdgeId), or path.segments (binds PathSegment) as the iteration target.",
+          "materialized_note": "When @materialized, the cached value is the serialized Path struct. Cleared on next write trigger if any referenced IDs are deleted. Null if no path currently exists."
+        }
+      ]
+    },
+    "warnings": {
+      "WARN-SCHEMA-002": "Deprecated ? role suffix — use (0..1) cardinality instead",
+      "WARN-SCHEMA-003": "Inline Field Declaration (Pre-v0.19) — v0.19 requires extraction to DEFINE FIELD.",
+      "WARN-PERF-001": "Traversal-computed property used in WHERE clause without @materialized",
+      "WARN-PERF-003": "Cold field used in unindexed filter predicate — reclassify field or restructure query",
+      "WARN-PERF-004": "Dynamic Traversal Materialization: Emitted when a CROSS_TYPE query falls back to a scan because of stale/missing views, or when a @computed(TRAVERSE) @materialized field has incomplete write-trigger derivation."
+    }
+  }
+}

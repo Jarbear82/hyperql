@@ -1,0 +1,122 @@
+{
+  "hyperql_version": "0.19",
+  "part": "6_deployment_and_operations",
+  "graph_algorithms": {
+    "description": "HyperQL graph algorithms are accessible via two distinct interfaces: Query-Level Canonical Form and Programmatic API.",
+    "query_level_canonical_form": {
+      "description": "Used within WITH and MATCH clauses. Results are typically returned as a node-keyed Map.",
+      "syntax": "WITH AlgorithmName(NodeType, EdgeType [, option_key: value, ...]) AS alias",
+      "positional_rule": "The first two arguments (NodeType, EdgeType) MUST be positional. All subsequent options MUST use keyword-argument form.",
+      "algorithms": [
+        { "name": "PAGERANK", "signature": "PAGERANK(Node, Edge [, damping: f64, max_iterations: u32, tolerance: f64])", "returns": "Map<NodeId, f64>" },
+        { "name": "LOUVAIN", "signature": "LOUVAIN(Node, Edge [, resolution: f64, seed: u64])", "returns": "Map<NodeId, u64>" },
+        { "name": "BETWEENNESS_CENTRALITY", "signature": "BETWEENNESS_CENTRALITY(Node, Edge [, normalized: bool])", "returns": "Map<NodeId, f64>" },
+        { "name": "CONNECTED_COMPONENTS", "signature": "CONNECTED_COMPONENTS(Node, Edge [, directed: bool])", "returns": "Map<NodeId, u64>" },
+        { "name": "TRIANGLE_COUNT", "signature": "TRIANGLE_COUNT(Node, Edge)", "returns": "Map<NodeId, u32>" }
+      ],
+      "scalar_similarity_functions": {
+        "description": "Point-pair similarity functions used as scalar expressions in WHERE or RETURN.",
+        "functions": [
+          { "name": "JACCARD_SIMILARITY", "signature": "JACCARD_SIMILARITY(node1, node2, EdgeType) -> f64" },
+          { "name": "COSINE_SIMILARITY", "signature": "COSINE_SIMILARITY(node1, node2, FieldName) -> f64" }
+        ]
+      }
+    },
+    "programmatic_api": {
+      "description": "Direct method access on the database handle for use in host languages or UDFs.",
+      "pathfinding": [
+        {
+          "name": "shortestPath",
+          "signature": "db.shortestPath(start: NodeId, end: NodeId, edge_type: EdgeHandle, weight_by?: FieldHandle, using?: WeightAlgo) -> Path?",
+          "description": "Finds single shortest path. WeightAlgo: SUM (Dijkstra) | MAX | MIN | AVG. Default: SUM.",
+          "algorithms": "SUM=Dijkstra/A*, MAX=Bottleneck, MIN=Widest."
+        },
+        {
+          "name": "allShortestPaths",
+          "signature": "db.allShortestPaths(start: NodeId, end: NodeId, edge_type: EdgeHandle, weight_by?: FieldHandle, using?: WeightAlgo) -> []Path",
+          "description": "Finds all shortest paths with equal minimum cost."
+        },
+        {
+          "name": "kShortestPaths",
+          "signature": "db.kShortestPaths(start: NodeId, end: NodeId, k: u32, edge_type: EdgeHandle, weight_by?: FieldHandle, using?: WeightAlgo) -> []Path",
+          "description": "Finds K shortest paths (Yen's algorithm). Ordered by ascending cost."
+        }
+      ],
+      "connectivity": [
+        {
+          "name": "connectedComponents",
+          "signature": "db.connectedComponents(node_type?: NodeHandle, edge_type?: EdgeHandle, directed?: bool) -> Map<NodeId, u64>",
+          "description": "Labels each node with its component ID. Default directed: false."
+        },
+        {
+          "name": "findCycles",
+          "signature": "db.findCycles(node_type?: NodeHandle, edge_type?: EdgeHandle, max_length?: u32) -> []Path",
+          "description": "Finds all cycles. Each Path is closed (start == end)."
+        }
+      ],
+      "centrality": [
+        {
+          "name": "degreeCentrality",
+          "signature": "db.degreeCentrality(node_type?: NodeHandle, edge_type?: EdgeHandle, direction?: Direction) -> Map<NodeId, u32>",
+          "description": "Count of edges per node. Direction: IN | OUT | BOTH (default)."
+        },
+        {
+          "name": "pageRank",
+          "signature": "db.pageRank(node_type?: NodeHandle, edge_type?: EdgeHandle, damping?: f64, tolerance?: f64, max_iterations?: u32) -> Map<NodeId, f64>",
+          "description": "Iterative PageRank calculation. Defaults: damping=0.85, tolerance=1e-6, max_iter=100."
+        },
+        {
+          "name": "betweennessCentrality",
+          "signature": "db.betweennessCentrality(node_type?: NodeHandle, edge_type?: EdgeHandle, normalized?: bool) -> Map<NodeId, f64>",
+          "description": "Betweenness centrality calculation. Default normalized: true."
+        }
+      ],
+      "community_detection": [
+        {
+          "name": "louvain",
+          "signature": "db.louvain(node_type?: NodeHandle, edge_type?: EdgeHandle, resolution?: f64, seed?: u64) -> Map<NodeId, u64>",
+          "description": "Louvain community detection ID per node."
+        }
+      ],
+      "pattern_matching": [
+        {
+          "name": "triangleCount",
+          "signature": "db.triangleCount(node_type?: NodeHandle, edge_type?: EdgeHandle) -> Map<NodeId, u32>",
+          "description": "Per-node count of triangles the node participates in."
+        }
+      ],
+      "similarity": [
+        {
+          "name": "jaccardSimilarity",
+          "signature": "db.jaccardSimilarity(a: NodeId, b: NodeId, edge_type?: EdgeHandle) -> f64",
+          "description": "Similarity in [0.0, 1.0] based on shared neighbors."
+        },
+        {
+          "name": "cosineSimilarity",
+          "signature": "db.cosineSimilarity(a: NodeId, b: NodeId, field: FieldHandle) -> f64",
+          "description": "Similarity in [-1.0, 1.0] based on a Vector field."
+        }
+      ]
+    },
+    "extension_system": {
+      "plugin_architecture": {
+        "description": "Third-party algorithms can be registered as UDFs."
+      }
+    },
+    "performance_notes": {
+      "description": "Graph algorithms can be computationally expensive",
+      "optimizations": [
+        "Use parallel execution where possible (PageRank, Connected Components)",
+        "Cache intermediate results for repeated calculations",
+        "Provide progress indicators for long-running algorithms",
+        "Allow query timeouts to prevent runaway computation"
+      ],
+      "best_practices": [
+        "Run expensive algorithms during off-peak hours",
+        "Consider pre-computing centrality metrics and storing as node properties",
+        "Use LIMIT clauses when exploring algorithm results",
+        "Test algorithms on sample subgraphs before running on full dataset"
+      ]
+    }
+  }
+}

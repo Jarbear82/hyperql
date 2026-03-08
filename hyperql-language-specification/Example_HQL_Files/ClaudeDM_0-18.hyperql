@@ -1,0 +1,745 @@
+-- ============================================================================
+-- D&D Campaign Knowledge Base - HyperQL v0.18
+-- A comprehensive Dungeon Master's campaign management system
+-- ============================================================================
+
+DEFINE NAMESPACE Campaign.Realms STRICT_MODE = true;
+
+-- ============================================================================
+-- UNIFIED SCHEMA DEFINITION
+-- v0.18: Single mixed DEFINE [...] block. Everything is hoisted before
+-- validation, so ordering between sub-blocks is arbitrary and irrelevant.
+-- ============================================================================
+
+DEFINE [
+
+  -- --------------------------------------------------------------------------
+  -- ENUMERATIONS
+  -- v0.18: Typed variants — <INT> enables range/ordering semantics,
+  --        <FLAGS> enables bitfield set operations.
+  -- --------------------------------------------------------------------------
+  ENUM [
+    -- Plain: alignment has no natural ordering
+    Alignment {
+      LAWFUL_GOOD, NEUTRAL_GOOD, CHAOTIC_GOOD,
+      LAWFUL_NEUTRAL, TRUE_NEUTRAL, CHAOTIC_NEUTRAL,
+      LAWFUL_EVIL, NEUTRAL_EVIL, CHAOTIC_EVIL
+    },
+    -- <INT>: enables WHERE Size >= .LARGE
+    CreatureSize<INT> {
+      TINY = 1, SMALL = 2, MEDIUM = 3,
+      LARGE = 4, HUGE = 5, GARGANTUAN = 6
+    },
+    -- <FLAGS>: enables multi-type damage e.g. FIRE | COLD | NECROTIC
+    DamageType<FLAGS> {
+      SLASHING, PIERCING, BLUDGEONING,
+      FIRE, COLD, LIGHTNING, THUNDER, ACID, POISON,
+      RADIANT, NECROTIC, PSYCHIC, FORCE
+    },
+    -- <INT>: enables ordering for quest progression (RUMORED → COMPLETED)
+    QuestStatus<INT> {
+      RUMORED = 1, AVAILABLE = 2, ACTIVE = 3,
+      COMPLETED = 4, FAILED = 5, ABANDONED = 6
+    },
+    -- <INT>: enables WHERE ItemRarity >= .RARE, ORDER BY ItemRarity DESC
+    Rarity<INT> {
+      COMMON = 1, UNCOMMON = 2, RARE = 3,
+      VERY_RARE = 4, LEGENDARY = 5, ARTIFACT = 6
+    },
+    -- Plain: no meaningful ordering between location types
+    LocationType {
+      CITY, TOWN, VILLAGE, DUNGEON, WILDERNESS,
+      TEMPLE, FORTRESS, TAVERN, SHOP
+    },
+    -- <INT>: enables WHERE Reputation >= .FRIENDLY, ORDER BY standing DESC
+    FactionReputation<INT> {
+      HOSTILE = 1, UNFRIENDLY = 2, NEUTRAL = 3,
+      FRIENDLY = 4, ALLIED = 5, EXALTED = 6
+    }
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- FIELDS
+  -- v0.18: DEFAULT clauses eliminate boilerplate in CREATE statements.
+  --        @cold places large narrative strings in a secondary partition —
+  --        they are never used in WHERE predicates, only in final RETURN.
+  -- --------------------------------------------------------------------------
+  FIELD [
+    -- Identity
+    Id: UUID @readonly DEFAULT UUID(),
+    Name: String @index @required,
+    Description: String @index(fulltext),
+    ShortName: String,
+    Title: String,
+    Alias: String,
+
+    -- Numeric Stats
+    Level: Int,
+    HitPoints: Int,
+    MaxHitPoints: Int,
+    ArmorClass: Int,
+    ChallengeRating: Float,
+    ExperiencePoints: Int,
+    GoldValue: Int,
+    Weight: Float,
+
+    -- Ability Scores
+    Strength: Int,
+    Dexterity: Int,
+    Constitution: Int,
+    Intelligence: Int,
+    Wisdom: Int,
+    Charisma: Int,
+
+    -- Ability Modifiers (computed)
+    -- v0.18 fix: all use FLOOR() — truncates toward -∞, correct for negative
+    -- modifiers (e.g. score 8 → -1, not 0 as plain division would give).
+    StrMod: Int @computed(FLOOR((this.Strength     - 10) / 2)),
+    DexMod: Int @computed(FLOOR((this.Dexterity    - 10) / 2)),
+    ConMod: Int @computed(FLOOR((this.Constitution - 10) / 2)),
+    IntMod: Int @computed(FLOOR((this.Intelligence - 10) / 2)),
+    WisMod: Int @computed(FLOOR((this.Wisdom       - 10) / 2)),
+    ChaMod: Int @computed(FLOOR((this.Charisma     - 10) / 2)),
+
+    -- Enumerated
+    AlignmentType: Enum<Alignment>,
+    Size: Enum<CreatureSize>,
+    Status: Enum<QuestStatus>,
+    ItemRarity: Enum<Rarity>,
+    LocType: Enum<LocationType>,
+    Reputation: Enum<FactionReputation>,
+
+    -- Narrative / Lore (@cold — secondary partition, never filtered)
+    Biography: String @cold,
+    Motivation: String @cold,
+    Secret: String @cold,
+    Rumors: String @cold,
+    History: String @cold,
+    Flavor: String @cold,
+    Notes: String,  -- kept primary; DMs may search/filter notes
+
+    -- Metadata (DEFAULT values eliminate per-CREATE boilerplate)
+    CreatedAt: Date @readonly DEFAULT NOW(),
+    UpdatedAt: Date DEFAULT NOW(),
+    SessionNumber: Int,
+    IsAlive: Bool DEFAULT true,
+    IsDiscovered: Bool DEFAULT false,
+    IsCompleted: Bool DEFAULT false,
+
+    -- Location
+    Latitude: Float,
+    Longitude: Float,
+    Population: Int,
+    MapReference: String,
+
+    -- Item / Magic Properties
+    MagicBonus: Int DEFAULT 0,
+    AttunementRequired: Bool DEFAULT false,
+    Charges: Int?,
+    MaxCharges: Int?,
+    -- v0.18: Flags<DamageType> supports multi-type damage (e.g. FIRE | COLD)
+    DamageTypeProp: Flags<DamageType>,
+
+    -- Edge Properties (DEFAULT values reduce CREATE EDGE boilerplate)
+    quantity: Int DEFAULT 1,
+    IsEquipped: Bool DEFAULT false,
+    subject: String,
+    initiative: Int,
+    distance: Float,
+    danger: Int,
+    participation_role: String,
+    information: String,
+
+    -- Computed Display Name
+    DisplayName: String @computed(
+      IF(this.Title != null, this.Title + " " + this.Name, this.Name)
+    ) @display,
+
+    -- Vector Embeddings
+    DescriptionEmbedding: Vector<384> @index(vector, metric="cosine"),
+    LoreEmbedding: Vector<384> @index(vector, metric="cosine")
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- STRUCTS
+  -- --------------------------------------------------------------------------
+  STRUCT [
+    AbilityCheck { Name, DamageTypeProp, Description },
+    Coordinates  { Latitude, Longitude }
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- TRAITS
+  -- --------------------------------------------------------------------------
+  TRAIT [
+    Identifiable { Id, Name, Description, CreatedAt, UpdatedAt },
+    HasStats {
+      Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma,
+      StrMod, DexMod, ConMod, IntMod, WisMod, ChaMod
+    },
+    Combative   { HitPoints, MaxHitPoints, ArmorClass, IsAlive },
+    Positioned  { Latitude, Longitude, MapReference },
+    Discoverable { IsDiscovered, Rumors }
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- ROLES
+  -- --------------------------------------------------------------------------
+  ROLE [
+    character    ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    combatant    ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    quest_giver  ALLOWS [NonPlayerCharacter, Faction, Deity],
+    quest_target ALLOWS [NonPlayerCharacter, Creature, Location, Item],
+    merchant     ALLOWS [NonPlayerCharacter],
+    customer     ALLOWS [PlayerCharacter, NonPlayerCharacter],
+    owner        ALLOWS [PlayerCharacter, NonPlayerCharacter, Faction],
+    possessor    ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature, Location],
+    member       ALLOWS [PlayerCharacter, NonPlayerCharacter],
+    organization ALLOWS [Faction, Guild],
+    parent       ALLOWS [Location],
+    child        ALLOWS [Location],
+    worshipper   ALLOWS [PlayerCharacter, NonPlayerCharacter, Faction],
+    divine       ALLOWS [Deity],
+    teacher      ALLOWS [NonPlayerCharacter],
+    student      ALLOWS [PlayerCharacter, NonPlayerCharacter],
+    source       ALLOWS [Location, NonPlayerCharacter, Event],
+    destination  ALLOWS [Location],
+    participant  ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    scene        ALLOWS [Event, Encounter],
+    party        ALLOWS PlayerCharacter,
+    character1   ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    character2   ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    giver        ALLOWS [NonPlayerCharacter, Faction, Deity],
+    quest        ALLOWS Quest,
+    recipient    ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    target       ALLOWS [NonPlayerCharacter, Creature, Location, Item],
+    item         ALLOWS Item,
+    deity        ALLOWS Deity,
+    encounter    ALLOWS [Event, Encounter],
+    event        ALLOWS [Event, Encounter],
+    knower       ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    known        ALLOWS Entity,
+    caster       ALLOWS [PlayerCharacter, NonPlayerCharacter, Creature],
+    spell        ALLOWS Spell
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- NODES
+  -- v0.18: ABSTRACT keyword moves inside the NODE sub-block.
+  -- --------------------------------------------------------------------------
+  NODE [
+    ABSTRACT Entity EXTENDS [Identifiable] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes
+    },
+
+    PlayerCharacter EXTENDS [Entity, HasStats, Combative] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma,
+      StrMod, DexMod, ConMod, IntMod, WisMod, ChaMod,
+      HitPoints, MaxHitPoints, ArmorClass, IsAlive,
+      Level, ExperiencePoints, AlignmentType, Biography, DisplayName
+    },
+
+    NonPlayerCharacter EXTENDS [Entity, HasStats, Combative, Discoverable] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      Strength, Dexterity, Constitution, Intelligence, Wisdom, Charisma,
+      StrMod, DexMod, ConMod, IntMod, WisMod, ChaMod,
+      HitPoints, MaxHitPoints, ArmorClass, IsAlive,
+      Level, AlignmentType, Biography, Motivation, Secret,
+      IsDiscovered, Rumors, DisplayName
+    },
+
+    Creature EXTENDS [Entity, Combative] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      HitPoints, MaxHitPoints, ArmorClass, IsAlive,
+      Size, ChallengeRating, AlignmentType
+    },
+
+    Location EXTENDS [Entity, Positioned, Discoverable] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      Latitude, Longitude, MapReference,
+      IsDiscovered, Rumors, LocType, Population, History
+    },
+
+    Item EXTENDS [Entity, Discoverable] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      IsDiscovered, Rumors, ItemRarity, GoldValue, Weight,
+      MagicBonus, AttunementRequired, Charges, MaxCharges
+    },
+
+    Quest EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      Status, ExperiencePoints, GoldValue, SessionNumber
+    },
+
+    Faction EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      AlignmentType, History
+    },
+
+    Guild EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes, History
+    },
+
+    Deity EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      Title, AlignmentType, History
+    },
+
+    Event EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      SessionNumber, IsCompleted
+    },
+
+    Encounter EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes,
+      SessionNumber, ChallengeRating, IsCompleted
+    },
+
+    Spell EXTENDS [Entity] {
+      Id, Name, Description, CreatedAt, UpdatedAt, Notes, Level
+    }
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- EDGES
+  -- v0.18: Extended cardinality (N..M) replaces legacy ONE/MANY aliases
+  --        where minimum bounds carry semantic value.
+  -- --------------------------------------------------------------------------
+  EDGE [
+    -- (1..*): a party must have at least one member
+    PartyMembership {
+      member <- (1),
+      party  -> (1..*) @ordered,
+      SessionNumber
+    } @unique(member),
+
+    Relationship {
+      character1 <- (1),
+      character2 -> (1),
+      Description, Reputation
+    } @unique(character1, character2),
+
+    -- (1..*): a quest assignment must target at least one recipient
+    QuestAssignment {
+      giver     <- (1),
+      quest     -> (1),
+      recipient -> (1..*) @ordered,
+      SessionNumber
+    } @unique(quest),
+
+    QuestObjective {
+      quest  <- (1),
+      target -> (*) @unordered,
+      Description, IsCompleted
+    },
+
+    -- (1..*): a possession record must reference at least one item
+    Possession {
+      owner <- (1),
+      item  -> (1..*) @ordered,
+      quantity, IsEquipped, SessionNumber
+    },
+
+    Transaction {
+      merchant <- (1),
+      customer -> (1),
+      item     -> (1),
+      GoldValue, SessionNumber, CreatedAt
+    } @unique(merchant, customer, item, CreatedAt),
+
+    Membership {
+      member       <- (1),
+      organization -> (1),
+      Reputation, SessionNumber
+    } @unique(member, organization),
+
+    -- (0..*): a parent location may contain zero sub-locations
+    LocationContainment {
+      parent <- (1),
+      child  -> (0..*) @ordered,
+      Description
+    },
+
+    Worship {
+      worshipper <- (1),
+      deity      -> (1),
+      Reputation, Description
+    } @unique(worshipper, deity),
+
+    Training {
+      teacher <- (1),
+      student -> (1..*) @ordered,
+      subject, SessionNumber, IsCompleted
+    },
+
+    CombatParticipation {
+      encounter <- (1),
+      combatant -> (1..*) @ordered,
+      initiative, IsAlive, SessionNumber
+    },
+
+    TravelRoute {
+      source      <- (1),
+      destination -> (1),
+      distance, danger, Description
+    } @unique(source, destination),
+
+    EventParticipation {
+      event       <- (1),
+      participant -> (1..*) @unordered,
+      participation_role, SessionNumber
+    },
+
+    Knowledge {
+      knower <- (1),
+      known  -> (*) @unordered,
+      information, SessionNumber
+    },
+
+    SpellKnowledge {
+      caster <- (1),
+      spell  -> (*) @ordered,
+      SessionNumber
+    }
+  ],
+
+  -- --------------------------------------------------------------------------
+  -- INDEXES
+  -- --------------------------------------------------------------------------
+  INDEX [
+    CharacterNameIndex    ON PlayerCharacter    (Name),
+    NPCNameAlignmentIndex ON NonPlayerCharacter (Name, AlignmentType),
+    LocationTypeIndex     ON Location           (LocType, IsDiscovered),
+    QuestStatusIndex      ON Quest              (Status, SessionNumber),
+    ItemRarityIndex       ON Item               (ItemRarity, GoldValue),
+    EncounterSessionIndex ON Encounter          (SessionNumber, IsCompleted)
+  ]
+
+]; -- end DEFINE
+
+-- v0.18: Materialized view for cross-type character queries (Queries 11 & 12).
+-- Kept outside the DEFINE block — DEFINE MATERIALIZED VIEW is its own statement.
+-- Converts CROSS_TYPE scans from O(partitions × rows) to O(log n).
+DEFINE MATERIALIZED VIEW CharacterSearch
+  FOR [PlayerCharacter, NonPlayerCharacter]
+  ON  [Name, AlignmentType, IsAlive]
+  INDEX [Name, AlignmentType];
+
+-- ============================================================================
+-- SAMPLE DATA
+-- v0.18: CREATE [NODE, EDGE] — shared variable scope makes the Possession edge
+-- atomic with its item. quantity omitted — DEFAULT 1 applies.
+-- ============================================================================
+
+CREATE [
+    NODE [
+        -- Adventuring party
+        aragorn:PlayerCharacter {
+            Name = "Aragorn Stormblade",
+            Description = "A human ranger with a mysterious past",
+            Strength = 16, Dexterity = 14, Constitution = 15,
+            Intelligence = 10, Wisdom = 13, Charisma = 12,
+            HitPoints = 45, MaxHitPoints = 45, ArmorClass = 16,
+            Level = 5, ExperiencePoints = 6500,
+            AlignmentType = .NEUTRAL_GOOD,
+            Biography = "Once a soldier in the King's army, now seeks redemption",
+            Notes = "Party leader, tends to be cautious"
+        },
+        lyra:PlayerCharacter {
+            Name = "Lyra Moonwhisper",
+            Description = "An elven wizard specializing in divination magic",
+            Strength = 8, Dexterity = 14, Constitution = 12,
+            Intelligence = 18, Wisdom = 14, Charisma = 10,
+            HitPoints = 28, MaxHitPoints = 28, ArmorClass = 12,
+            Level = 5, ExperiencePoints = 6500,
+            AlignmentType = .CHAOTIC_GOOD,
+            Biography = "Exiled from her forest home for dabbling in forbidden magic",
+            Notes = "Curious about ancient artifacts, sometimes reckless"
+        },
+        -- Important NPCs
+        elder_theron:NonPlayerCharacter {
+            Name = "Theron the Wise",
+            Description = "Village elder with knowledge of ancient prophecies",
+            Strength = 8, Dexterity = 10, Constitution = 12,
+            Intelligence = 16, Wisdom = 18, Charisma = 14,
+            HitPoints = 22, MaxHitPoints = 22, ArmorClass = 10,
+            Level = 7, AlignmentType = .LAWFUL_GOOD,
+            Biography = "Has served as village elder for over 40 years",
+            Motivation = "Protect the village and preserve ancient knowledge",
+            Secret = "Knows the location of the Shadow Temple but fears its power",
+            IsDiscovered = true,
+            Rumors = "Some say he can see the future in his dreams"
+        },
+        villain_malachar:NonPlayerCharacter {
+            Name = "Malachar the Defiler",
+            Description = "Dark sorcerer seeking to awaken an ancient evil",
+            Strength = 12, Dexterity = 14, Constitution = 14,
+            Intelligence = 20, Wisdom = 16, Charisma = 18,
+            HitPoints = 85, MaxHitPoints = 85, ArmorClass = 15,
+            Level = 12, AlignmentType = .CHAOTIC_EVIL,
+            Biography = "Once a promising apprentice, corrupted by forbidden texts",
+            Motivation = "Believes awakening the Dark God will grant him immortality",
+            Secret = "His sister is imprisoned in the Shadow Realm",
+            IsDiscovered = true,
+            Rumors = "Whispers speak of his unholy pact with demons"
+        },
+        -- Locations (dungeon_shadow omits IsDiscovered — DEFAULT = false)
+        village_haven:Location {
+            Name = "Millhaven",
+            Description = "A peaceful farming village nestled in a verdant valley",
+            Latitude = 42.5, Longitude = -71.3,
+            LocType = .VILLAGE, Population = 450,
+            IsDiscovered = true,
+            History = "Founded 200 years ago by refugees fleeing the Dragon Wars",
+            Rumors = "Strange lights have been seen in the nearby forest at night"
+        },
+        dungeon_shadow:Location {
+            Name = "Shadow Temple",
+            Description = "Ancient temple corrupted by dark magic, sealed for centuries",
+            Latitude = 42.8, Longitude = -71.5,
+            LocType = .TEMPLE,
+            History = "Built to honor the Sun God, later defiled by necromancers",
+            Rumors = "Those who enter are said to never return the same"
+        },
+        -- Other
+        sword_flame:Item {
+            Name = "Flamebrand",
+            Description = "A longsword wreathed in eternal flames",
+            ItemRarity = .RARE, GoldValue = 5000, Weight = 3.0,
+            MagicBonus = 2, AttunementRequired = true, IsDiscovered = true,
+            Rumors = "Forged in dragon fire by the legendary smith Thane Ironfist"
+        },
+        faction_order:Faction {
+            Name = "Order of the Silver Dawn",
+            Description = "Paladins dedicated to fighting undead and dark magic",
+            AlignmentType = .LAWFUL_GOOD,
+            History = "Founded after the Necromancer Wars to prevent such darkness from rising again"
+        },
+        quest_temple:Quest {
+            Name = "Cleanse the Shadow Temple",
+            Description = "Investigate and purify the corrupted temple before the dark ritual is completed",
+            Status = .ACTIVE, ExperiencePoints = 2000, GoldValue = 500, SessionNumber = 3
+        },
+        deity_sun:Deity {
+            Name = "Solara", Title = "The Radiant Dawn",
+            Description = "Goddess of light, healing, and protection",
+            AlignmentType = .NEUTRAL_GOOD,
+            History = "Worshipped since the dawn of civilization, opposed to undeath"
+        },
+
+    ],
+    EDGE [
+        possess_sword:Possession {
+            owner => aragorn, item => [sword_flame],
+            IsEquipped = true, SessionNumber = 2
+        },
+        -- Remaining relationships (atomic batch; IsCompleted omitted on quest_obj — DEFAULT false)
+        party_rel:PartyMembership {
+            member => aragorn,
+            party  => [aragorn, lyra],
+            SessionNumber = 1
+        },
+        quest_assignment:QuestAssignment {
+            giver     => elder_theron,
+            quest     => quest_temple,
+            recipient => [aragorn, lyra],
+            SessionNumber = 3
+        },
+        quest_obj:QuestObjective {
+            quest  => quest_temple,
+            target => [dungeon_shadow, villain_malachar],
+            Description = "Stop Malachar from completing the dark ritual"
+        },
+        faction_member:Membership {
+            member       => aragorn,
+            organization => faction_order,
+            Reputation   = .FRIENDLY, SessionNumber = 1
+        },
+        worship_rel:Worship {
+            worshipper  => aragorn,
+            deity       => deity_sun,
+            Reputation  = .ALLIED,
+            Description = "Devoted follower who prays daily"
+        },
+        location_contain:LocationContainment {
+            parent      => village_haven,
+            child       => [dungeon_shadow],
+            Description = "The temple lies 5 miles north of the village"
+        },
+        travel_path:TravelRoute {
+            source      => village_haven,
+            distance    = 5.0, danger = 8,
+            destination => dungeon_shadow,
+            Description = "Forest path, haunted by undead at night"
+        }
+    ]
+
+];
+
+-- ============================================================================
+-- EXAMPLE QUERIES FOR DM USE
+-- v0.18: Block syntax for WHERE [...] and RETURN [...].
+-- ============================================================================
+
+-- Query 1: Find all active quests with their objectives
+MATCH (q:Quest)
+WHERE q.Status == .ACTIVE
+OPTIONAL MATCH (obj:QuestObjective { quest => q })
+RETURN [
+  q.Name, q.Description,
+  COLLECT(obj.Description) AS objectives,
+  q.ExperiencePoints, q.GoldValue
+]
+ORDER BY q.SessionNumber DESC;
+
+-- Query 2: Get party roster with current HP percentage
+MATCH (p:PlayerCharacter)
+WHERE p.IsAlive == true
+RETURN [
+  p.Name, p.Level,
+  p.HitPoints, p.MaxHitPoints,
+  (p.HitPoints * 100.0 / p.MaxHitPoints) AS hp_percentage,
+  p.ArmorClass
+]
+ORDER BY p.Name;
+
+-- Query 3: Find evil living NPCs and their known relationships
+MATCH (n:NonPlayerCharacter)
+WHERE [
+  n.AlignmentType == .CHAOTIC_EVIL,
+  n.IsAlive == true
+]
+OPTIONAL MATCH (r:Relationship { character1 => n })
+RETURN [
+  n.Name, n.Description, n.Level, n.Secret,
+  COUNT(r) AS known_relationships
+]
+ORDER BY n.Level DESC;
+
+-- Query 4: Discover nearby locations from a starting point
+MATCH [
+  (start:Location { Name: "Millhaven" }),
+  (route:TravelRoute { source => start }),
+  (dest:Location)
+]
+WHERE route.destination == dest
+RETURN [
+  dest.Name, dest.LocType,
+  route.distance, route.danger,
+  dest.IsDiscovered, dest.Rumors
+]
+ORDER BY route.distance ASC;
+
+-- Query 5: Party inventory summary with total value
+-- MATCH [...] block: all three patterns joined simultaneously so the planner
+-- can optimize role resolution and the CONTAINS filter as a single operation.
+MATCH (pc:PlayerCharacter)
+WHERE pc.IsAlive == true
+MATCH [
+  (inv:Possession { owner => pc }),
+  (i:Item)
+]
+WHERE inv.item CONTAINS i
+RETURN [
+  pc.Name AS character, i.Name AS item,
+  i.ItemRarity AS rarity, i.GoldValue AS value,
+  inv.IsEquipped AS equipped
+]
+ORDER BY pc.Name, i.GoldValue DESC;
+
+-- Query 6: Find all magical items not yet discovered
+-- Rarity<INT> makes ORDER BY ItemRarity DESC meaningful (ARTIFACT first).
+MATCH (i:Item)
+WHERE [
+  i.IsDiscovered == false,
+  i.MagicBonus > 0
+]
+RETURN [i.Name, i.ItemRarity, i.Description, i.Rumors]
+ORDER BY i.ItemRarity DESC;
+
+-- Query 7: Faction reputation report
+-- FactionReputation<INT> makes ORDER BY standing DESC meaningful.
+-- MATCH [...] block: membership and faction resolved together as a join so
+-- the role predicate (organization == f) can be index-applied in one pass.
+MATCH [
+  (pc:PlayerCharacter),
+  (mem:Membership { member => pc }),
+  (f:Faction)
+]
+WHERE mem.organization == f
+RETURN [
+  pc.Name AS character,
+  f.Name AS faction,
+  mem.Reputation AS standing
+]
+ORDER BY pc.Name, mem.Reputation DESC;
+
+-- Query 8: Session timeline of events
+MATCH (e:Event)
+WHERE e.SessionNumber <= 5
+RETURN [e.SessionNumber, e.Name, e.Description, e.IsCompleted]
+ORDER BY e.SessionNumber DESC, e.CreatedAt DESC;
+
+-- Query 9: Find shortest travel path between locations
+MATCH PATH p = (start:Location { Name: "Millhaven" })
+  -[:TravelRoute* WEIGHT BY distance USING SUM]->
+  (end:Location { Name: "Shadow Temple" })
+RETURN [
+  p.nodes  AS path_locations,
+  p.cost   AS total_distance,
+  p.length AS number_of_stops
+]
+ORDER BY p.cost ASC
+LIMIT 1;
+
+-- Query 10: Find quest chains (quests sharing location objectives)
+-- First MATCH [...]: q1, its objective, and the shared target location joined
+-- together — the planner can apply CONTAINS as part of the join.
+-- Second MATCH [...]: q2 and its objective joined for the same reason.
+-- Sequential staging is intentional here: q2's join depends on `target` being
+-- bound from the first stage, making a WITH-style pipeline appropriate.
+MATCH [
+  (q1:Quest),
+  (obj:QuestObjective { quest => q1 }),
+  (target:Location)
+]
+WHERE obj.target CONTAINS target
+MATCH [
+  (q2:Quest),
+  (obj2:QuestObjective { quest => q2 })
+]
+WHERE [
+  obj2.target CONTAINS target,
+  q1.Id != q2.Id
+]
+RETURN [
+  q1.Name AS prerequisite_quest,
+  target.Name AS shared_location,
+  q2.Name AS subsequent_quest,
+  q1.Status AS prereq_status,
+  q2.Status AS next_status
+]
+ORDER BY q1.SessionNumber, q2.SessionNumber;
+
+-- Query 11: Character power level analysis with window functions
+-- CROSS_TYPE uses CharacterSearch materialized view — O(log n) vs full scan.
+MATCH (c) CROSS_TYPE
+WHERE c.IsAlive == true
+RETURN [
+  c.Name, c.Level, c.MaxHitPoints, c.ArmorClass,
+  RANK()       OVER (ORDER BY c.Level DESC) AS level_rank,
+  AVG(c.Level) OVER ()                      AS avg_party_level,
+  c.Level - AVG(c.Level) OVER ()            AS level_difference
+]
+ORDER BY c.Level DESC;
+
+-- Query 12: Find all knowledge connections about the villain
+-- CROSS_TYPE on knower uses KnowerSearch materialized view — covers all knower role types.
+MATCH (know:Knowledge)
+MATCH (villain:NonPlayerCharacter { Name: "Malachar the Defiler" })
+WHERE know.known CONTAINS villain
+MATCH (knower) CROSS_TYPE
+WHERE know.knower == knower
+RETURN [knower.Name, know.information, know.SessionNumber]
+ORDER BY know.SessionNumber DESC;

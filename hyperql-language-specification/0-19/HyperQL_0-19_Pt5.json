@@ -1,0 +1,124 @@
+{
+  "hyperql_version": "0.19",
+  "part": "5_security_extensions_and_aggregation",
+  "security_model": {
+    "description": "HyperQL's security model uses DEFINE ACCESS ROLE and CREATE USER. Fine-grained filtering is provided by DEFINE ACCESS POLICY.",
+    "permissions": ["READ", "WRITE", "ALTER", "DROP", "EXECUTE", "ADMIN"],
+    "definitions": [
+      {
+        "keyword": "DEFINE ACCESS ROLE",
+        "syntax": "DEFINE ACCESS ROLE RoleName [ GRANT NAMESPACE NamespaceName PERMISSIONS [Permission, ...], GRANT NODE TypeName PERMISSIONS [Permission, ...], GRANT EDGE TypeName PERMISSIONS [Permission, ...], GRANT FIELD FieldName PERMISSIONS [Permission, ...], DENY NODE TypeName PERMISSIONS [Permission, ...] ];",
+        "description": "Grants or denies permissions over namespaces, types, and fields. DENY takes precedence over GRANT."
+      },
+      {
+        "keyword": "CREATE USER",
+        "syntax": "CREATE USER username WITH PASSWORD \"credential_or_provider_ref\" [ROLES [Role1, Role2]];",
+        "description": "Creates a new database user."
+      },
+      {
+        "keyword": "ALTER USER",
+        "syntax": "ALTER USER username [ SET PASSWORD \"new_credential\", ADD ROLES [RoleName, ...], REMOVE ROLES [RoleName, ...] ];",
+        "description": "Modifies an existing user."
+      },
+      {
+        "keyword": "DROP USER",
+        "syntax": "DROP USER username;"
+      },
+      {
+        "keyword": "GRANT ACCESS ROLE",
+        "syntax": "GRANT ACCESS ROLE RoleName TO username;"
+      },
+      {
+        "keyword": "REVOKE ACCESS ROLE",
+        "syntax": "REVOKE ACCESS ROLE RoleName FROM username;"
+      },
+      {
+        "keyword": "DEFINE ACCESS POLICY",
+        "syntax": "DEFINE ACCESS POLICY PolicyName ON NodeType | EdgeType FOR ACCESS ROLE RoleName USING (condition_expression);",
+        "description": "Fine-grained node/edge-level filtering. Transparent to queries. Condition has access to $current_user variable.",
+        "example": "DEFINE ACCESS POLICY OwnOrdersOnly ON Order FOR ACCESS ROLE CustomerRole USING (owner_id == $current_user.id);"
+      }
+    ],
+    "introspection": [
+      "SHOW ACCESS ROLES;",
+      "SHOW ACCESS POLICIES ON TypeName;",
+      "SHOW USERS;",
+      "SHOW PERMISSIONS FOR username;"
+    ]
+  },
+  "aggregation_functions": {
+    "description": "Aggregation functions operate on collections in RETURN clauses with GROUP BY, @computed properties, and role collections. v0.19: AggFn is a formally separate enum. AggFn calls are a distinct AST variant (AggCallExpr) [Decision 5].",
+    "structural_rules": "AggCallExpr is structurally forbidden in positions that accept only scalar expressions. Valid in: RETURN, WITH (projection), and HAVING.",
+    "functions": [
+      { "name": "COUNT", "signature": "COUNT(expr | *) -> Int", "desc": "COUNT(*) counts all rows; COUNT(expr) counts non-nulls." },
+      { "name": "SUM", "signature": "SUM(expr: Numeric) -> Numeric" },
+      { "name": "AVG", "signature": "AVG(expr: Numeric) -> Float" },
+      { "name": "MIN", "signature": "MIN(expr: Comparable) -> T" },
+      { "name": "MAX", "signature": "MAX(expr: Comparable) -> T" },
+      { "name": "COLLECT", "signature": "COLLECT(expr: T) -> List<T>" },
+      { "name": "COLLECT_DISTINCT", "signature": "COLLECT_DISTINCT(expr: T) -> List<T>" },
+      { "name": "STRING_AGG", "signature": "STRING_AGG(expr: String, sep: String) -> String" },
+      { "name": "BOOL_AND", "signature": "BOOL_AND(expr: Bool) -> Bool" },
+      { "name": "BOOL_OR", "signature": "BOOL_OR(expr: Bool) -> Bool" }
+    ],
+    "role_collection_aggregation": {
+      "description": "Aggregation over (MANY) role collections is built-in and does NOT require graph traversal.",
+      "examples": ["MATCH (c:Commute) RETURN c, COUNT(c.passengers)"]
+    },
+    "grouping_patterns": {
+      "sql_style": { "syntax": "RETURN agg_func(expr), group_expr GROUP BY group_expr" },
+      "with_style": { "syntax": "WITH group_expr AS alias, COLLECT(var) AS collection RETURN ..." }
+    },
+    "user_defined_aggregates": {
+      "description": "Custom aggregations defined via DEFINE AGGREGATE FUNCTION can be used interchangeably with built-in aggregation functions. Must be marked @pure. Graph access is forbidden.",
+      "syntax": "RETURN Name(expr1, expr2) GROUP BY group_expr",
+      "example": "RETURN p.Department, WeightedAvg(p.Salary, p.PerformanceScore) GROUP BY p.Department;"
+    }
+  },
+  "window_functions": {
+    "description": "Window functions perform calculations across a set of rows related to the current row. v0.19: WindowFn is a formally separate enum. WindowCallExpr carries a WindowSpec [Decision 5].",
+    "structural_rules": "Forbidden outside of RETURN and WITH (projection) contexts.",
+    "syntax": "function() OVER (WindowSpec)",
+    "window_spec_fields": ["func: WindowFn", "partition_by: List<Expr>", "order_by: List<OrderExpr>", "frame: FrameSpec?"],
+    "ranking_functions": [
+      { "name": "ROW_NUMBER", "sig": "ROW_NUMBER() -> Int" },
+      { "name": "RANK", "sig": "RANK() -> Int" },
+      { "name": "DENSE_RANK", "sig": "DENSE_RANK() -> Int" },
+      { "name": "NTILE", "sig": "NTILE(n: Int) -> Int" }
+    ],
+    "aggregate_window_functions": [
+      { "name": "SUM", "sig": "SUM(expr) OVER (...)" },
+      { "name": "AVG", "sig": "AVG(expr) OVER (...)" },
+      { "name": "COUNT", "sig": "COUNT(expr) OVER (...)" },
+      { "name": "MIN", "sig": "MIN(expr) OVER (...)" },
+      { "name": "MAX", "sig": "MAX(expr) OVER (...)" }
+    ],
+    "navigation_functions": [
+      { "name": "LAG", "sig": "LAG(expr, offset?, default?) -> T?" },
+      { "name": "LEAD", "sig": "LEAD(expr, offset?, default?) -> T?" },
+      { "name": "FIRST_VALUE", "sig": "FIRST_VALUE(expr) -> T?" },
+      { "name": "LAST_VALUE", "sig": "LAST_VALUE(expr) -> T?" },
+      { "name": "NTH_VALUE", "sig": "NTH_VALUE(expr, n) -> T?" }
+    ],
+    "frame_specification": {
+      "section": "C.2 FrameSpec for Window Functions",
+      "description": "Defines the frame for aggregate and navigation window functions. Valid only when ORDER BY is present.",
+      "frame_types": {
+        "ROWS": "Defined in terms of physical row offsets.",
+        "RANGE": "Defined in terms of logical distance. Requires numeric/date ORDER BY."
+      },
+      "bounds": [
+        "UNBOUNDED PRECEDING", "UNBOUNDED FOLLOWING", "CURRENT ROW",
+        "N PRECEDING (N non-negative integer literal/param)", "N FOLLOWING"
+      ],
+      "defaults": {
+        "with_order_by": "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",
+        "without_order_by": "ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING"
+      },
+      "examples": [
+        "SUM(amount) OVER (ORDER BY date ROWS BETWEEN 2 PRECEDING AND CURRENT ROW)",
+        "SUM(amount) OVER (PARTITION BY cat ORDER BY date RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)"
+      ]
+    }
+  }
+}

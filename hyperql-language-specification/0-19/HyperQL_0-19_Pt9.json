@@ -1,0 +1,29 @@
+{
+  "hyperql_version": "0.19",
+  "part": "9_core_v1_scope",
+  "v1_scope_mandate": {
+    "description": "Formal feature freeze for HyperQL Core v1. All features listed here are normative and must be supported by v1-compliant engines. No new core syntax will be added until v2.0.",
+    "core_features": [
+      "Strict Global Field Definitions",
+      "Mandatory Purity Decorators for UDFs",
+      "Tiered Normative Storage Semantics",
+      "Hyperedge Model with Extended Cardinality",
+      "Explicit Schema Units and Namespaces",
+      "Synchronous Plan Revalidation",
+      "Standardized 4xxx/5xxx Error Codes",
+      "Atomic Batch [...] Syntax",
+      "Standard Expression Language (SEL)",
+      "UDAF Formal Accumulator Model",
+      "Role-Based Access Control (RBAC)",
+      "Point-Pair Similarity Built-ins"
+    ],
+    "deferred_to_v2": [
+      "Temporal / Time-Travel Queries",
+      "Native JSON/CSV LOAD Statement",
+      "Distributed Partition Management",
+      "Recursive CTEs (beyond variable-depth match)",
+      "Trigger-Based Logic (External to @materialized)",
+      "Schema-level 'IF NOT EXISTS' guards"
+    ]
+  }
+}
