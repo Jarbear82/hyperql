@@ -11,10 +11,13 @@
       { "concept": "Begin / Commit", "description": "Scope mutation operations atomically within a transaction boundary." }
     ],
     "query_plan": {
-      "description": "A first-class, storable, and immutable value type containing a validated QueryNode tree and its parameter bindings.",
+      "description": "A first-class, storable, and immutable value type containing a validated QueryNode tree, its parameter bindings, and its dependency set of SchemaIds.",
       "lifecyle": "Produced by .plan(). Fully validated at plan time. Storable and reusable. Valid subject for explain() and analyze().",
+      "fields": [
+        "dependency_set: []SchemaId -- the complete set of all schema constructs (types, fields, roles, etc.) referenced by this plan. Used for revalidation on schema ALTER."
+      ],
       "validity_states": ["valid", "invalid", "pending (internal only)"],
-      "revalidation_on_alter": "Schema ALTER triggers synchronous plan revalidation [Decision 10]. Plans are moved to 'invalid' if revalidation fails."
+      "revalidation_on_alter": "Schema ALTER triggers synchronous plan revalidation [Decision 10]. Plans are moved to 'invalid' if revalidation fails (e.g., a dependency SchemaId is retired via DROP)."
     },
     "plan_and_run_api": {
       "plan_method": "db.match(...).plan() -> returns QueryPlan.",

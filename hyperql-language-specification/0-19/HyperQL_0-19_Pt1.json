@@ -19,6 +19,10 @@
   "storage_architecture": {
     "model": "Type-Partitioned Hybrid Column/Row Storage",
     "description": "Global fields are logical constraints (interfaces), not physical storage locations. Data is physically partitioned by Node Type using a Data-Oriented Design (DOD) approach.",
+    "identity_model": {
+      "schema_constructs": "Every named schema construct (node, edge, field, role, etc.) is assigned a stable SchemaId (UUID v7) at definition time. It survives renames and is retired on DROP.",
+      "data_instances": "Every node and edge instance exposes a built-in virtual field `_id` (UUID v7, time-ordered), assigned at creation and immutable thereafter. Implicitly indexed as the primary partition lookup key."
+    },
     "implications": [
       "Queries specifying a type (MATCH (p:Person)) are optimized to scan only that type's partition.",
       "Global queries (MATCH (n) WHERE n.LastName = 'X') require scanning all partitions containing that field.",
@@ -33,7 +37,8 @@
           { "requirement": "Late materialization", "spec": "Variable-width and @cold fields must not be accessed for rows eliminated by earlier predicates" },
           { "requirement": "Index usage", "spec": "An available index that reduces scan scope must be used when its predicate matches" },
           { "requirement": "@materialized read cost", "spec": "Must be equivalent to a stored property access — O(1)" },
-          { "requirement": "@cold isolation", "spec": "@cold fields must not degrade primary partition scan performance for queries that do not reference them" }
+          { "requirement": "@cold isolation", "spec": "@cold fields must not degrade primary partition scan performance for queries that do not reference them" },
+          { "requirement": "Universal Instance ID", "spec": "All node and edge instances MUST provide a queryable `_id` field." }
         ]
       },
       "tier_2_reference_guidance": {
@@ -43,7 +48,8 @@
           "Open-addressing hash sets for @unordered MANY roles",
           "Struct-of-Arrays layout for Vector<N> fields",
           "16/32-byte SIMD alignment for vector fields",
-          "Sorted (node_id, edge_id) pairs in role index tables"
+          "Sorted (node_id, edge_id) pairs in role index tables",
+          "UUID v7 for SchemaId and instance `_id`"
         ]
       },
       "0.1_hybrid_model": {
@@ -77,7 +83,7 @@
     "guarantee": "All names are collected before references are resolved. Definition order does not affect validity.",
     "passes": [
       "Pass 1 — Collection: Register all names (ENUM, FIELD, STRUCT, TRAIT, ROLE, NODE, EDGE, FUNCTION, INDEX)",
-      "Pass 2 — Type checking: Resolve all type references. v0.19 verifies matching DEFINE FIELD exists for all body references and rejects inline types [1052].",
+      "Pass 2 — Type checking: Resolve all type references. v0.19 verifies matching DEFINE FIELD exists for all body references and rejects inline types [1052]. For multi-parent inheritance, checks for conflicting `display:` SchemaIds and raises [1057] if unresolved.",
       "Pass 3 — Constraints: Validate expressions against resolved types",
       "Pass 4 — Edges: Validate role references in DEFINE EDGE",
       "Pass 5 — Indexes: Validate DEFINE INDEX targets"
@@ -260,24 +266,33 @@
       },
       {
         "keyword": "DEFINE NODE",
-        "syntax": "DEFINE NODE NodeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
-        "description": "Defines a strict Node Type with optional entity-level constraints. Supports multiple inheritance via EXTENDS and node-level DEFAULT overrides. v0.19: Requires bare field references (FieldRef) for storage fields [1052].",
+        "syntax": "DEFINE NODE NodeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [MetadataBlock]",
+        "description": "Defines a strict Node Type with optional entity-level metadata (display label and constraints). Supports multiple inheritance via EXTENDS and node-level DEFAULT overrides. v0.19: Requires bare field references (FieldRef) for storage fields [1052].",
         "batch_syntax": "DEFINE NODE [ NodeA { ... }, ABSTRACT NodeB { ... } ];",
         "entry_types": {
           "FieldRef": "Bare field name reference (must match a DEFINE FIELD).",
           "FieldRef DEFAULT expr": "Field name reference with a type-local default override.",
           "ComputedFieldRef": "Identifier : ReturnType @computed(...) - inline computed field declaration."
         },
-        "constraint_syntax": {
-          "array_form": {
-            "syntax": "{ constraints: [expr1, expr2, ...] }",
-            "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
-            "example": "{ constraints: [.age >= 0, .age <= 150, .name != \"\"] }"
+        "metadata_block": {
+          "syntax": "{ display: FieldName, constraints: [expr1, ...] }",
+          "description": "Optional block containing per-type metadata. Keys 'display' and 'constraints' are both optional and may appear in any order.",
+          "display_label": {
+            "syntax": "display: FieldName",
+            "description": "User-declared canonical display label for the type. Resolved to a SchemaId at definition time. Inherited from a single unambiguous parent if not declared.",
+            "example": "display: full_name"
           },
-          "object_form": {
-            "syntax": "{ constraints: { name1: expr1, name2: expr2, ... } }",
-            "description": "Named constraints for better error reporting and documentation.",
-            "example": "{ constraints: { valid_age: .age >= 0 AND .age <= 150, has_name: .name != \"\" } }"
+          "constraints": {
+            "array_form": {
+              "syntax": "constraints: [expr1, expr2, ...]",
+              "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
+              "example": "constraints: [.age >= 0, .age <= 150, .name != \"\"]"
+            },
+            "object_form": {
+              "syntax": "constraints: { name1: expr1, name2: expr2, ... }",
+              "description": "Named constraints for better error reporting and documentation.",
+              "example": "constraints: { valid_age: .age >= 0 AND .age <= 150, has_name: .name != \"\" }"
+            }
           }
         },
         "constraint_name_scoping": {
@@ -287,16 +302,16 @@
           "example": "DEFINE NODE Person { age } { constraints: [.age >= 0, { valid_age: .age <= 150 }] }; -- anonymous gets __anon_0, named is 'valid_age'. ALTER TYPE Person DROP CONSTRAINT valid_age;"
         },
         "constraint_context": "Can reference 'this' and all node fields, including @computed properties. Field references in constraints use dot prefix (.field).",
-        "example": "DEFINE NODE Person { id, name, age, status DEFAULT AccountStatus.PENDING } { constraints: [.age >= 0, .age <= 150] };",
+        "example": "DEFINE NODE Person { id, name, age, status DEFAULT AccountStatus.PENDING } { display: name, constraints: [.age >= 0, .age <= 150] };",
         "notes": [
-          "Constraints block is optional. Omit if no entity-level validation is needed.",
+          "Metadata block is optional. Omit if no display label or constraints are needed.",
           "Node-level DEFAULT overrides global field defaults for that specific type.",
           "Batch Modifiers: ABSTRACT is valid as an inline modifier within a batch NODE [...] sub-block."
         ]
       },
       {
         "keyword": "DEFINE ABSTRACT NODE",
-        "syntax": "DEFINE ABSTRACT NODE NodeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
+        "syntax": "DEFINE ABSTRACT NODE NodeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [MetadataBlock]",
         "description": "Defines a Node Type that can be extended but never instantiated directly. Supports batch syntax. Permitted in ALLOWS lists. v0.19: Requires bare field references (FieldRef) only [1052].",
         "batch_syntax": "DEFINE ABSTRACT NODE [ Entity { ... }, Asset { ... } ];",
         "constraint_name_scoping": {
@@ -304,11 +319,11 @@
           "anonymous_names": "Anonymous constraints receive __anon_N names.",
           "drop_by_name": "DROP CONSTRAINT name is valid in ALTER statements."
         },
-        "example": "DEFINE ABSTRACT NODE Entity { Id, CreatedAt } { constraints: [CreatedAt <= NOW()] };"
+        "example": "DEFINE ABSTRACT NODE Entity { Id, CreatedAt } { display: Id, constraints: [CreatedAt <= NOW()] };"
       },
       {
         "keyword": "DEFINE ABSTRACT EDGE",
-        "syntax": "DEFINE ABSTRACT EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
+        "syntax": "DEFINE ABSTRACT EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [MetadataBlock]",
         "description": "Defines an Edge Type that can be extended but never instantiated directly. v0.19: Requires bare field references (FieldRef) and inline roles only [1052].",
         "constraint_name_scoping": {
           "scope": "Constraint names are unique per type.",
@@ -319,26 +334,30 @@
       },
       {
         "keyword": "DEFINE EDGE",
-        "syntax": "DEFINE EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [ConstraintBlock]",
-        "description": "Defines a strict Hyperedge with optional relationship-level constraints. Supports multiple inheritance and strictly typed Roles with extended cardinality. v0.19: Roles are inline; fields are bare references (FieldRef) [1052].",
+        "syntax": "DEFINE EDGE EdgeTypeName [EXTENDS [Type1, Type2]] { Entry, ... } [MetadataBlock]",
+        "description": "Defines a strict Hyperedge with optional relationship-level metadata. Supports multiple inheritance and strictly typed Roles with extended cardinality. v0.19: Roles are inline; fields are bare references (FieldRef) [1052].",
         "batch_syntax": "DEFINE EDGE [ EdgeA { ... }, EdgeB { ... } ];",
         "entry_types": {
           "FieldRef": "Bare field name reference.",
           "RoleRef": "RoleName : Direction (Cardinality) - inline role declaration.",
           "ComputedFieldRef": "Identifier : ReturnType @computed(...) - inline computed declaration."
         },
+        "metadata_block": {
+          "syntax": "{ display: FieldName, constraints: [expr1, ...] }",
+          "description": "Identical to Node metadata block. Allows declaring a display label and constraints for the edge type."
+        },
         "role_resolution": "Role names must exactly match a DEFINE ROLE statement. Ad-hoc roles are forbidden.",
         "cardinality": "Extended cardinality supports exact (N), unbounded (*), and range (N..M) counts. Legacy ONE (1) and MANY (*) remain as aliases.",
         "constraint_syntax": {
           "array_form": {
-            "syntax": "{ constraints: [expr1, expr2, ...] }",
+            "syntax": "constraints: [expr1, expr2, ...]",
             "description": "Anonymous constraints. All must evaluate to true (implicit AND).",
-            "example": "{ constraints: [.husband != .wife, .date <= NOW()] }"
+            "example": "constraints: [.husband != .wife, .date <= NOW()]"
           },
           "object_form": {
-            "syntax": "{ constraints: { name1: expr1, name2: expr2, ... } }",
+            "syntax": "constraints: { name1: expr1, name2: expr2, ... }",
             "description": "Named constraints for better error reporting and documentation.",
-            "example": "{ constraints: { different_people: .husband != .wife, valid_date: .date <= NOW() } }"
+            "example": "constraints: { different_people: .husband != .wife, valid_date: .date <= NOW() }"
           }
         },
         "constraint_name_scoping": {
@@ -347,7 +366,7 @@
           "drop_by_name": "DROP CONSTRAINT name is valid in ALTER statements."
         },
         "constraint_context": "Can reference all role variables and edge fields, including @computed properties. Field references use dot prefix.",
-        "example": "DEFINE EDGE Marriage { husband <- (1), wife <- (1), date DEFAULT NOW() } { constraints: [.husband != .wife, .date <= NOW()] };",
+        "example": "DEFINE EDGE Marriage { husband <- (1), wife <- (1), date DEFAULT NOW() } { display: date, constraints: [.husband != .wife, .date <= NOW()] };",
         "notes": [
           "Optional Roles: Use (0..1) cardinality. Legacy '?' suffix is deprecated [WARN-SCHEMA-002].",
           "Cardinality Enforcement: Bounds are enforced on CREATE and all SET += / -= mutations [3014].",
@@ -504,11 +523,6 @@
         "description": "Indicates a field is accessed infrequently. Stored in a secondary partition separate from primary column store. v0.19 allows combined @index usage without WARN-PERF-003 for indexed lookups.",
         "performance_notes": "Reduces primary scan overhead. Using in unindexed WHERE clause triggers [WARN-PERF-003].",
         "example": "body: String? @cold"
-      },
-      {
-        "name": "@display",
-        "scope": "UI / Metadata",
-        "description": "Indicates this property is the primary human-readable label for the entity."
       },
       {
         "name": "@unique",

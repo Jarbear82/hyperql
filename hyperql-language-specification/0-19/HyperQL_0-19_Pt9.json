@@ -15,7 +15,9 @@
       "Standard Expression Language (SEL)",
       "UDAF Formal Accumulator Model",
       "Role-Based Access Control (RBAC)",
-      "Point-Pair Similarity Built-ins"
+      "Point-Pair Similarity Built-ins",
+      "Universal Schema and Instance IDs",
+      "Per-Type Display Metadata"
     ],
     "deferred_to_v2": [
       "Temporal / Time-Travel Queries",

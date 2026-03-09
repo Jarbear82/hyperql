@@ -101,6 +101,31 @@
         "desc": "$param in position where type cannot be inferred; annotation required [v0.19]."
       },
       {
+        "code": 2027,
+        "name": "Stale Schema Reference",
+        "desc": "A schema construct referenced by display: or a QueryPlan was dropped and its SchemaId retired."
+      },
+      {
+        "code": 1054,
+        "name": "Reserved Identifier",
+        "desc": "_id is a reserved identifier and cannot be used as a field name."
+      },
+      {
+        "code": 1055,
+        "name": "Duplicate Metadata Key",
+        "desc": "Metadata key 'display' or 'constraints' appears more than once in the type metadata block."
+      },
+      {
+        "code": 1056,
+        "name": "Invalid Display Field Reference",
+        "desc": "Field name in display: declaration does not match any field in the type body."
+      },
+      {
+        "code": 1057,
+        "name": "Ambiguous Inherited Display Field",
+        "desc": "Type inherits conflicting display: declarations from multiple parents and must declare its own."
+      },
+      {
         "code": 2030,
         "name": "Ambiguous Function Call",
         "desc": "Multiple function signatures match, cannot resolve"
@@ -245,7 +270,7 @@
       {
         "code": 3023,
         "name": "Read-Only Field Violation",
-        "desc": "Attempt to modify @readonly field"
+        "desc": "Attempt to modify a field which is immutable (e.g., _id or @readonly field after creation)."
       },
       {
         "code": 3024,
@@ -467,14 +492,57 @@
         "stages: []AnalyzeStage"
       ]
     },
+    "SchemaId": "UUID v7 assigned to every schema construct at definition time. Stable and retired on DROP.",
+    "HandleAliases": {
+      "NodeHandle": "Alias for SchemaId identifying a node type.",
+      "EdgeHandle": "Alias for SchemaId identifying an edge type.",
+      "FieldHandle": "Alias for SchemaId identifying a field definition.",
+      "RoleHandle": "Alias for SchemaId identifying a role definition."
+    },
     "NodeTypeInfo": {
       "fields": [
+        "schema_id: SchemaId",
         "handle: NodeHandle",
         "name: String",
         "abstract: bool",
         "fields: []FieldInfo",
         "constraints: []ConstraintInfo",
-        "extends: []NodeHandle -- empty if no parents; one or more for EXTENDS [T1, T2, ...]"
+        "extends: []NodeHandle -- empty if no parents; one or more for EXTENDS [T1, T2, ...]",
+        "primary_field: SchemaId? -- engine-inferred @unique @index field",
+        "display_field: SchemaId? -- user-declared display label for the type"
+      ],
+      "notes": [
+        "schema_id and handle carry the same value. handle is retained for compatibility.",
+        "primary_field is the SchemaId of the field carrying both @unique and @index, if exactly one such field exists.",
+        "display_field is declared via display: metadata key. Resolved to SchemaId at definition time. Inherited from unambiguous parent if not declared."
+      ]
+    },
+    "EdgeTypeInfo": {
+      "fields": [
+        "schema_id: SchemaId",
+        "handle: EdgeHandle",
+        "name: String",
+        "abstract: bool",
+        "fields: []FieldInfo",
+        "roles: []RoleInfo",
+        "constraints: []ConstraintInfo",
+        "extends: []EdgeHandle",
+        "primary_field: SchemaId? -- engine-inferred @unique @index field",
+        "display_field: SchemaId? -- user-declared display label for the edge"
+      ],
+      "notes": [
+        "primary_field follows same inference rule as NodeTypeInfo.",
+        "display_field follows same inheritance rules as NodeTypeInfo."
+      ]
+    },
+    "FieldInfo": {
+      "fields": [
+        "schema_id: SchemaId",
+        "name: String",
+        "type: String",
+        "nullable: bool",
+        "decorators: []String",
+        "default: String?"
       ]
     },
     "ExplainConstraintResult": {
@@ -878,6 +946,9 @@
         "Prepared Statement Lifecycle: Session-scoped and persistent statements with synchronous revalidation.",
         "ON ERROR CONTINUE: Formal transaction semantics with TransactionResult and StatementError types.",
         "Query-Level Graph Algorithm Canonical Form: Positional (Node, Edge) followed by keyword options.",
+        "Universal Schema IDs: every schema construct receives a stable UUID v7 at definition time.",
+        "Universal Instance IDs: every node and edge instance exposes a built-in virtual field `_id` (UUID v7).",
+        "Per-type `display:` metadata: explicit per-type declaration of the canonical display label, replacing @display decorator.",
         "Scalar Similarity Built-ins: JACCARD_SIMILARITY and COSINE_SIMILARITY for point-pair comparisons.",
         "UNION Type Compatibility: Formal unification rules for Int/Float, nullability, and abstract parents.",
         "Tiered Normative Storage Semantics: Observable behavior requirements for all compliant engines.",
