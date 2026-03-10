@@ -7,8 +7,8 @@
     "definitions": [
       {
         "keyword": "DEFINE ACCESS ROLE",
-        "syntax": "DEFINE ACCESS ROLE RoleName [ GRANT NAMESPACE NamespaceName PERMISSIONS [Permission, ...], GRANT NODE TypeName PERMISSIONS [Permission, ...], GRANT EDGE TypeName PERMISSIONS [Permission, ...], GRANT FIELD FieldName PERMISSIONS [Permission, ...], DENY NODE TypeName PERMISSIONS [Permission, ...] ];",
-        "description": "Grants or denies permissions over namespaces, types, and fields. DENY takes precedence over GRANT."
+        "syntax": "DEFINE ACCESS ROLE RoleName [ GRANT NAMESPACE NamespaceName PERMISSIONS [Permission, ...] [CASCADE | NO CASCADE], DENY NAMESPACE NamespaceName PERMISSIONS [Permission, ...] [CASCADE | NO CASCADE], GRANT NODE TypeName PERMISSIONS [Permission, ...], DENY NODE TypeName PERMISSIONS [Permission, ...], GRANT EDGE TypeName PERMISSIONS [Permission, ...], DENY EDGE TypeName PERMISSIONS [Permission, ...], GRANT FIELD FieldName PERMISSIONS [Permission, ...], DENY FIELD FieldName PERMISSIONS [Permission, ...] ];",
+        "description": "Grants or denies permissions over namespaces, types, and fields. DENY takes precedence over GRANT. v0.19 adds CASCADE/NO CASCADE support for namespaces."
       },
       {
         "keyword": "CREATE USER",
@@ -39,12 +39,128 @@
         "example": "DEFINE ACCESS POLICY OwnOrdersOnly ON Order FOR ACCESS ROLE CustomerRole USING (owner_id == $current_user.id);"
       }
     ],
+    "permission_inheritance": {
+      "description": "Rules governing how permissions propagate through the namespace hierarchy.",
+      "rules": [
+        {
+          "rule": "PERM-1",
+          "name": "Downward Cascade",
+          "description": "A grant on namespace N implicitly grants the same permissions on all descendant namespaces of N to arbitrary depth, unless overridden by a DENY at a descendant level."
+        },
+        {
+          "rule": "PERM-2",
+          "name": "No Upward Cascade",
+          "description": "A grant on namespace N confers no permissions on any ancestor or sibling namespace of N."
+        },
+        {
+          "rule": "PERM-3",
+          "name": "DENY Hard Ceiling",
+          "description": "A DENY on namespace N overrides any grant at N or any descendant of N, regardless of where the grant was declared. A child-level GRANT cannot override a parent-level DENY."
+        },
+        {
+          "rule": "PERM-4",
+          "name": "Additive Child Grants",
+          "description": "A grant may be issued at a child namespace without a grant at the parent. This grants access only to the specified namespace and its descendants, with no effect on the parent or siblings."
+        },
+        {
+          "rule": "PERM-5",
+          "name": "CASCADE Default",
+          "description": "Grants cascade downward by default. NO CASCADE restricts a grant to the specified namespace only, with no propagation to descendants."
+        }
+      ]
+    },
+    "permission_resolution_rules": {
+      "description": "Rules governing interaction between namespace permissions, type-partitioned storage, and composable polymorphism via EXTENDS.",
+      "rules": [
+        {
+          "rule": "PERM-6",
+          "name": "Partition Authority (Instance Data)",
+          "description": "Read and write permissions for node and edge instance data are governed by the namespace of the type's storage partition. Field SchemaId ownership does not determine instance data access permissions."
+        },
+        {
+          "rule": "PERM-7",
+          "name": "Type Reference Authority (Schema Access)",
+          "description": "Referencing a type by name in a query requires read permission on the namespace where that type is defined. This is a schema-level permission check, separate from instance data permissions."
+        },
+        {
+          "rule": "PERM-8",
+          "name": "Polymorphic Subtype Visibility",
+          "description": "A polymorphic MATCH on a parent type includes concrete subtypes only from namespaces the querying user has read permission on. Subtypes in inaccessible namespaces are silently excluded from the result set."
+        },
+        {
+          "rule": "PERM-9",
+          "name": "Role Traversal Boundary",
+          "description": "When a query traverses a role to a target node, the target node's accessibility is governed by the permission of its storage partition's namespace. Nodes in inaccessible partitions are silently excluded from role traversal results."
+        },
+        {
+          "rule": "PERM-10",
+          "name": "Schema vs. Permission Dependency",
+          "description": "IMPORT and EXTENDS establish schema dependencies tracked via SchemaIds. They do not create runtime permission dependencies. A namespace that imports another does not automatically inherit permissions over the imported namespace's instance data or types."
+        },
+        {
+          "rule": "PERM-11",
+          "name": "Write Partition Authority",
+          "description": "Write permission for creating or modifying a node or edge instance is governed by the namespace of the type's storage partition, regardless of where inherited field SchemaIds are defined."
+        }
+      ]
+    },
+    "strict_permissions_mode": {
+      "description": "Switches default silent-filter behavior to loud failure for Rules PERM-8 and PERM-9. Any query that would produce a silently filtered result instead raises [9010] Permission Denied and aborts.",
+      "syntax": [
+        "SET STRICT_PERMISSIONS ON;",
+        "ALTER NAMESPACE NamespaceName SET STRICT_PERMISSIONS ON;",
+        "DEFINE ACCESS ROLE RoleName STRICT_PERMISSIONS [ ... ]"
+      ],
+      "normative_rules": [
+        {
+          "rule": "SP-1",
+          "description": "Under STRICT_PERMISSIONS, a polymorphic MATCH that would encounter a subtype in an inaccessible namespace raises [9010] rather than silently excluding the subtype."
+        },
+        {
+          "rule": "SP-2",
+          "description": "Under STRICT_PERMISSIONS, a role traversal that would encounter a node in an inaccessible partition raises [9010] rather than silently excluding the node."
+        },
+        {
+          "rule": "SP-3",
+          "description": "STRICT_PERMISSIONS does not affect DEFINE ACCESS POLICY row-level filtering. Access policies always filter silently."
+        }
+      ]
+    },
     "introspection": [
       "SHOW ACCESS ROLES;",
       "SHOW ACCESS POLICIES ON TypeName;",
       "SHOW USERS;",
-      "SHOW PERMISSIONS FOR username;"
-    ]
+      "SHOW PERMISSIONS FOR username;",
+      "SHOW EFFECTIVE PERMISSIONS FOR username ON NAMESPACE NamespaceName;",
+      "SHOW NAMESPACE NamespaceName;"
+    ],
+    "introspection_additions": {
+      "SHOW_EFFECTIVE_PERMISSIONS": {
+        "description": "Returns the fully resolved permission set for a user against a specific namespace, after all grants, denies, and cascades have been applied.",
+        "return_type": "EffectivePermissionsResult",
+        "structure": {
+          "username": "String",
+          "namespace": "String",
+          "permissions": "[Permission] -- effective granted permissions",
+          "denied": "[Permission] -- explicitly denied permissions",
+          "inherited_from": "[String] -- namespaces that contributed grants",
+          "strict_mode": "Bool",
+          "subnamespaces": "[{ namespace: String, permissions: [Permission], denied: [Permission] }] -- recursive breakdown"
+        }
+      },
+      "SHOW_NAMESPACE": {
+        "description": "Returns basic metadata for a namespace.",
+        "return_type": "NamespaceInfoResult",
+        "structure": {
+          "name": "String",
+          "state": "String",
+          "field_count": "Int",
+          "node_count": "Int",
+          "edge_count": "Int",
+          "sub_namespaces": "[String]"
+        }
+      }
+    }
   },
   "aggregation_functions": {
     "description": "Aggregation functions operate on collections in RETURN clauses with GROUP BY, @computed properties, and role collections. v0.19: AggFn is a formally separate enum. AggFn calls are a distinct AST variant (AggCallExpr) [Decision 5].",

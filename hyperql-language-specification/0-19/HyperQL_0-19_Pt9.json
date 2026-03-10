@@ -17,7 +17,11 @@
       "Role-Based Access Control (RBAC)",
       "Point-Pair Similarity Built-ins",
       "Universal Schema and Instance IDs",
-      "Per-Type Display Metadata"
+      "Per-Type Display Metadata",
+      "Namespace Block Nesting",
+      "Downward-Cascading Permission Inheritance",
+      "STRICT_PERMISSIONS Mode",
+      "Type Partition Authority Model"
     ],
     "deferred_to_v2": [
       "Temporal / Time-Travel Queries",

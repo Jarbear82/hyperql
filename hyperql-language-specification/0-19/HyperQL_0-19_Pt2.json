@@ -37,12 +37,7 @@
         "null == null = null (use IS NULL)",
         "MERGE Semantics: Null values in a MERGE pattern act as wildcards (match any existing value). Existing values are preserved ('kept') when matched against a null, unless explicitly overwritten to null."
       ],
-      "safe_operators": [
-        "IS NULL",
-        "COALESCE",
-        "??",
-        "?. (Safe Navigation)"
-      ]
+      "safe_operators": ["IS NULL", "COALESCE", "??", "?. (Safe Navigation)"]
     }
   },
   "enum_semantics": {
@@ -72,10 +67,30 @@
     "bitwise_operators": {
       "description": "Added in v0.19 for FLAGS-typed operands only. Using on non-FLAGS types is error [2001].",
       "operators": [
-        { "symbol": "|", "name": "Bitwise OR", "precedence": "Between level 5 and 6", "desc": "Combines two FLAGS values." },
-        { "symbol": "&", "name": "Bitwise AND", "precedence": "Between level 5 and 6", "desc": "Intersects two FLAGS values." },
-        { "symbol": "~", "name": "Bitwise NOT", "precedence": "Level 3", "desc": "Inverts all bits in a FLAGS value (unary)." },
-        { "symbol": "IN", "name": "FLAGS Containment", "precedence": "Level 6", "desc": "True if all bits in left operand are set in right operand." }
+        {
+          "symbol": "|",
+          "name": "Bitwise OR",
+          "precedence": "Between level 5 and 6",
+          "desc": "Combines two FLAGS values."
+        },
+        {
+          "symbol": "&",
+          "name": "Bitwise AND",
+          "precedence": "Between level 5 and 6",
+          "desc": "Intersects two FLAGS values."
+        },
+        {
+          "symbol": "~",
+          "name": "Bitwise NOT",
+          "precedence": "Level 3",
+          "desc": "Inverts all bits in a FLAGS value (unary)."
+        },
+        {
+          "symbol": "IN",
+          "name": "FLAGS Containment",
+          "precedence": "Level 6",
+          "desc": "True if all bits in left operand are set in right operand."
+        }
       ]
     },
     "unit_conversion_recommendation": {
@@ -109,114 +124,79 @@
           },
           "opt_out": "Use @volatile to disable caching and force re-execution on every access",
           "v019_guidance": "v0.19 strongly prefers @materialized for hot-path TRAVERSE properties to move cost to write-time."
-          }
-          },
-          "udaf_expression_semantics": {
-          "description": "Expression evaluation within DEFINE AGGREGATE FUNCTION follows clause-specific scope rules.",
-          "STATE": {
+        }
+      },
+      "udaf_expression_semantics": {
+        "description": "Expression evaluation within DEFINE AGGREGATE FUNCTION follows clause-specific scope rules.",
+        "STATE": {
           "scope": "Literals, global @pure functions only.",
           "description": "Initial values must be constants or deterministic pure calls. Graph access is forbidden."
-          },
-          "ACCUMULATE": {
+        },
+        "ACCUMULATE": {
           "scope": "Input parameters, current STATE slot values.",
           "description": "Evaluated once per row. Every STATE slot must be assigned exactly once."
-          },
-          "FINALIZE": {
+        },
+        "FINALIZE": {
           "scope": "Final STATE slot values only. Input parameters are NOT in scope.",
           "description": "Evaluated once after all rows are processed. Always called exactly once."
-          }
-          },
-          "operators": {
-
+        }
+      }
+    },
+    "operators": {
       "precedence": [
         {
           "level": 1,
-          "operators": [
-            ".",
-            "this.field"
-          ],
+          "operators": [".", "this.field"],
           "desc": "Property access"
         },
         {
           "level": 2,
-          "operators": [
-            "FUNCTION()"
-          ],
+          "operators": ["FUNCTION()"],
           "desc": "Function calls"
         },
         {
           "level": 3,
-          "operators": [
-            "!",
-            "-",
-            "~"
-          ],
+          "operators": ["!", "-", "~"],
           "desc": "Unary (!, -, bitwise NOT)"
         },
         {
           "level": 3.5,
-          "operators": [
-            "?.",
-            "??"
-          ],
+          "operators": ["?.", "??"],
           "desc": "Null coalescing and safe navigation"
         },
         {
           "level": 4,
-          "operators": [
-            "*",
-            "/",
-            "%"
-          ],
+          "operators": ["*", "/", "%"],
           "desc": "Multiplicative"
         },
         {
           "level": 5,
-          "operators": [
-            "+",
-            "-"
-          ],
+          "operators": ["+", "-"],
           "desc": "Additive"
         },
         {
           "level": 5.5,
-          "operators": [
-            "|",
-            "&"
-          ],
+          "operators": ["|", "&"],
           "desc": "Bitwise OR, AND (FLAGS only)"
         },
         {
           "level": 6,
-          "operators": [
-            "<",
-            ">",
-            "<=",
-            ">=",
-            "IN"
-          ],
+          "operators": ["<", ">", "<=", ">=", "IN"],
           "desc": "Comparison and FLAGS containment"
         },
         {
           "level": 7,
-          "operators": [
-            "==",
-            "!="
-          ],
+          "operators": ["==", "!="],
           "desc": "Equality"
         },
         {
           "level": 8,
-          "operators": [
-            "&&"
-          ],
+          "operators": ["&&"],
           "desc": "Logical AND"
         },
         {
           "level": 9,
-          "operators": [
-            "||"
-          ],
+          "operators": ["||"],
           "desc": "Logical OR"
         }
       ]
@@ -519,8 +499,16 @@
     },
     "subquery_expressions": {
       "description": "Subqueries embedded in expressions as distinct variants.",
-      "ExistsExpr": { "syntax": "EXISTS (subquery)", "returns": "Bool", "desc": "True if subquery produces any rows." },
-      "InSubqueryExpr": { "syntax": "expr IN (subquery)", "returns": "Bool", "desc": "True if expr matches any value in subquery result (exactly one column required)." }
+      "ExistsExpr": {
+        "syntax": "EXISTS (subquery)",
+        "returns": "Bool",
+        "desc": "True if subquery produces any rows."
+      },
+      "InSubqueryExpr": {
+        "syntax": "expr IN (subquery)",
+        "returns": "Bool",
+        "desc": "True if expr matches any value in subquery result (exactly one column required)."
+      }
     },
     "scripting_and_control_flow": {
       "description": "Procedural constructs in DEFINE FUNCTION bodies. Represented as Stmt union variants. v0.19: Purity is statically validated at definition time via transitive call-graph analysis [Decision 12].",
@@ -565,8 +553,13 @@
         "description": "Reassignment of VAR binding."
       },
       "BreakStmt": { "syntax": "BREAK;", "description": "Exits loop." },
-      "ContinueStmt": { "syntax": "CONTINUE;", "description": "Next iteration." },
-      "ExprStmt": { "description": "Bare expression (only in @readonly/@nondeterministic)." }
+      "ContinueStmt": {
+        "syntax": "CONTINUE;",
+        "description": "Next iteration."
+      },
+      "ExprStmt": {
+        "description": "Bare expression (only in @readonly/@nondeterministic)."
+      }
     }
   },
   "constraint_expression_language": {

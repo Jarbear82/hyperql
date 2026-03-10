@@ -403,6 +403,16 @@
         "desc": "Internal. Access policy caused node/edge to be excluded. Not surfaced to the querying user."
       },
       {
+        "code": "WARN-PERM-001",
+        "name": "Silent Subtype Exclusion",
+        "desc": "One or more subtypes were excluded from a polymorphic MATCH due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
+      },
+      {
+        "code": "WARN-PERM-002",
+        "name": "Silent Role Traversal Exclusion",
+        "desc": "One or more role-bound nodes were excluded from traversal results due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
+      },
+      {
         "code": 9020,
         "name": "User Not Found",
         "desc": "Referenced user does not exist."
@@ -941,6 +951,10 @@
         "The Four-Concept Model: Define, Plan, Run, Begin/Commit [Decision 14].",
         "Mandatory global DEFINE FIELD: all type bodies reference fields by name only [1052].",
         "Security Model: DEFINE ACCESS ROLE, CREATE USER, and fine-grained DEFINE ACCESS POLICY.",
+        "Namespace Block Nesting: Block-form DEFINE NAMESPACE may be nested within other block-form namespace declarations to arbitrary depth.",
+        "Namespace Permission Inheritance: Downward-cascading grants with DENY as hard ceiling. CASCADE / NO CASCADE modifiers. STRICT_PERMISSIONS mode for fail-loud behavior.",
+        "Permission Resolution Rules for Inherited Types: Partition authority governs instance data access. Schema dependency and permission dependency are formally separated. Polymorphic subtype visibility and role traversal boundary rules defined.",
+        "SHOW EFFECTIVE PERMISSIONS: Introspection command returning fully resolved permission set for a user against a namespace.",
         "UDAF Formal Specification: Mandatory STATE, ACCUMULATE, and FINALIZE clauses for DEFINE AGGREGATE FUNCTION.",
         "HAVING Clause: Post-aggregation filtering for GROUP BY results.",
         "Prepared Statement Lifecycle: Session-scoped and persistent statements with synchronous revalidation.",

@@ -117,9 +117,45 @@
           "Cross-namespace references require explicit IMPORT.",
           "Multiple files may share a namespace; definitions are merged additively.",
           "v0.19: STRICT_MODE is retired; all schemas must use mandatory global field definitions."
-        ]
-      },
-      {
+        ],
+        "syntax_clarifications": {
+          "preamble_form": {
+            "description": "Declares the file as a contributor to a namespace. The namespace may span multiple files. Other files may also declare the same preamble and contribute definitions additively.",
+            "example": "DEFINE NAMESPACE Core.Game;\n\nDEFINE FIELD level: Int;\nDEFINE NODE Player { level };"
+          },
+          "block_form": {
+            "description": "Declares a self-contained namespace unit. All definitions are contained within the block. No other file may contribute to this namespace. The file boundary is irrelevant; the block boundary is the containment unit.",
+            "example": "DEFINE NAMESPACE Core.Game [\n    DEFINE FIELD level: Int;\n    DEFINE NODE Player { level };\n];"
+          },
+          "normative_rules": [
+            {
+              "rule": "NS-1",
+              "name": "Namespace Collision",
+              "description": "A namespace declared in block form is closed to external contribution. Any attempt by another file to declare the same namespace (in either form) produces [1010] Namespace Collision."
+            },
+            {
+              "rule": "NS-2",
+              "name": "Sub-Namespace Containment",
+              "description": "A file using preamble form may contain one or more block-form sub-namespace declarations. These sub-namespaces are file-contained. The parent namespace declared via preamble remains open for multi-file contribution."
+            },
+            {
+              "rule": "NS-3",
+              "name": "Nested Block Forms",
+              "description": "Block forms may be nested within other block forms to arbitrary depth. Each nested block form is contained within its enclosing block form. The fully-qualified namespace name must be specified at each level. When the outermost namespace is block form, all nested namespaces are transitively file-contained regardless of their own form."
+            },
+            {
+              "rule": "NS-4",
+              "name": "Organizational Dot-Hierarchy",
+              "description": "The dot-hierarchy is organizational, not a scope-chain. Core.Game.Combat does not have implicit access to definitions in Core.Game. Cross-namespace access always requires an explicit IMPORT statement."
+            },
+            {
+              "rule": "NS-5",
+              "name": "Permission Inheritance",
+              "description": "Sub-namespaces do not automatically inherit permissions from their parent namespace at the IMPORT level. Permission inheritance is governed separately by the permission model."
+            }
+          ]
+        }
+      },      {
         "keyword": "DEFINE ENUM",
         "syntax": "DEFINE ENUM EnumName<TYPE?> { CONSTANT = VALUE?, ... }",
         "description": "Defines a return set of named constants. v0.18 introduces typed variants for ordering, exact decimals, and bitflags. v0.19 resolution pass converts shorthand (.Identifier) to fully qualified variants during type-checking.",
