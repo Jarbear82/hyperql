@@ -29,7 +29,7 @@
         "View defined over compatible predicate (same field access pattern).",
         "View covers at least the fields referenced in predicate and RETURN projections."
       ],
-      "fallback": "Full cross-partition scan if no eligible view exists. Emits WARN-PERF-004 if unindexed."
+      "fallback": "Full cross-partition scan if no eligible view exists. Emits [WARN-PERF-004] if unindexed."
     },
     "return_expr_variants": [
       { "variant": "BareVar", "desc": "RETURN p" },

@@ -403,16 +403,6 @@
         "desc": "Internal. Access policy caused node/edge to be excluded. Not surfaced to the querying user."
       },
       {
-        "code": "WARN-PERM-001",
-        "name": "Silent Subtype Exclusion",
-        "desc": "One or more subtypes were excluded from a polymorphic MATCH due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
-      },
-      {
-        "code": "WARN-PERM-002",
-        "name": "Silent Role Traversal Exclusion",
-        "desc": "One or more role-bound nodes were excluded from traversal results due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
-      },
-      {
         "code": 9020,
         "name": "User Not Found",
         "desc": "Referenced user does not exist."
@@ -424,6 +414,16 @@
       }
     ],
     "warnings": [
+      {
+        "code": "[WARN-PERM-001]",
+        "name": "Silent Subtype Exclusion",
+        "desc": "One or more subtypes were excluded from a polymorphic MATCH due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
+      },
+      {
+        "code": "[WARN-PERM-002]",
+        "name": "Silent Role Traversal Exclusion",
+        "desc": "One or more role-bound nodes were excluded from traversal results due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
+      },
       {
         "code": "[WARN-SCHEMA-002]",
         "name": "Deprecated ? role suffix",
@@ -966,7 +966,7 @@
         "Scalar Similarity Built-ins: JACCARD_SIMILARITY and COSINE_SIMILARITY for point-pair comparisons.",
         "UNION Type Compatibility: Formal unification rules for Int/Float, nullability, and abstract parents.",
         "Tiered Normative Storage Semantics: Observable behavior requirements for all compliant engines.",
-        "Unified Performance Warnings: Redesigned WARN-PERF-004 for Dynamic Traversal Materialization.",
+        "Unified Performance Warnings: Redesigned [WARN-PERF-004] for Dynamic Traversal Materialization.",
         "Synchronous QueryPlan revalidation on schema ALTER [Decision 10].",
         "New Error Codes: [4001] Connected Node Delete, [2040] Computed mutation, [5001] Deadlock victim, [9010] Permission denied.",
         "Correction of error [2022] to permit abstract types in role ALLOWS lists.",

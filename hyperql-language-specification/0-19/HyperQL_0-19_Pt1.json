@@ -69,12 +69,12 @@
       "0.9_materialized_view": "Creates dedicated cross-type partitions indexed by specified fields to optimize CROSS_TYPE queries from O(partitions * rows) to O(log n).",
       "0.10_trigger_derivation": "Triggers for @materialized fields are derived statically from the QueryPlan. Write operations (CREATE, SET, DELETE) on referenced edge types trigger atomic recomputation of affected nodes.",
       "0.11_cold_index_interaction": {
-        "summary": "An index on a @cold field is built against the secondary partition. Lookups via the index avoid partition scans and do not trigger WARN-PERF-003.",
-        "indexed_predicate": "When a @cold field predicate is served by its index (narrow via index, then fetch from secondary partition only for surviving rows), WARN-PERF-003 is not emitted. This access pattern is explicitly legitimate and efficient.",
-        "unindexed_predicate": "WARN-PERF-003 fires when a @cold field appears in an unindexed predicate context — that is, when the engine must scan the secondary partition directly to evaluate the filter. The warning signals that adding an index or restructuring the query should be considered.",
+        "summary": "An index on a @cold field is built against the secondary partition. Lookups via the index avoid partition scans and do not trigger [WARN-PERF-003].",
+        "indexed_predicate": "When a @cold field predicate is served by its index (narrow via index, then fetch from secondary partition only for surviving rows), [WARN-PERF-003] is not emitted. This access pattern is explicitly legitimate and efficient.",
+        "unindexed_predicate": "[WARN-PERF-003] fires when a @cold field appears in an unindexed predicate context — that is, when the engine must scan the secondary partition directly to evaluate the filter. The warning signals that adding an index or restructuring the query should be considered.",
         "examples": [
-          "MATCH (a:Article) WHERE a.body MATCHES $q -- @cold with FULLTEXT index: efficient, no WARN-PERF-003",
-          "MATCH (a:Article) WHERE LENGTH(a.body) > 1000 -- @cold without index on LENGTH(): WARN-PERF-003"
+          "MATCH (a:Article) WHERE a.body MATCHES $q -- @cold with FULLTEXT index: efficient, no [WARN-PERF-003]",
+          "MATCH (a:Article) WHERE LENGTH(a.body) > 1000 -- @cold without index on LENGTH(): [WARN-PERF-003]"
         ]
       }
     }
@@ -145,8 +145,8 @@
             },
             {
               "rule": "NS-4",
-              "name": "Organizational Dot-Hierarchy",
-              "description": "The dot-hierarchy is organizational, not a scope-chain. Core.Game.Combat does not have implicit access to definitions in Core.Game. Cross-namespace access always requires an explicit IMPORT statement."
+              "name": "Organizational Dot-Hierarchy & Ancestor Visibility",
+              "description": "The dot-hierarchy provides implicit downward visibility. A sub-namespace (e.g., Core.Game.Combat) has automatic access to all definitions in its ancestor chain (e.g., Core.Game and Core). However, sideways access (siblings) or upward access still requires an explicit IMPORT statement."
             },
             {
               "rule": "NS-5",
@@ -524,7 +524,7 @@
         "contraindications": [
           "Do not use in constraint expressions.",
           "Do not use when query correctness depends on snapshot consistency.",
-          "Do not combine with @materialized [error 2072]."
+          "Do not combine with @materialized [2072]."
         ]
       },
       {
@@ -556,7 +556,7 @@
       {
         "name": "@cold",
         "scope": "Storage",
-        "description": "Indicates a field is accessed infrequently. Stored in a secondary partition separate from primary column store. v0.19 allows combined @index usage without WARN-PERF-003 for indexed lookups.",
+        "description": "Indicates a field is accessed infrequently. Stored in a secondary partition separate from primary column store. v0.19 allows combined @index usage without [WARN-PERF-003] for indexed lookups.",
         "performance_notes": "Reduces primary scan overhead. Using in unindexed WHERE clause triggers [WARN-PERF-003].",
         "example": "body: String? @cold"
       },
