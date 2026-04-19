@@ -5,7 +5,10 @@
     "section": "A. Execution Model",
     "description": "v0.19 organizes the entire HyperQL API around four foundational concepts [Decision 14].",
     "the_four_concept_model": [
-      { "concept": "Define", "description": "Declare fields, node types, edge types, traits, views, unions, and other schema constructs. Immediate and synchronous." },
+      {
+        "concept": "Define",
+        "description": "Declare fields, node types, edge types, traits, views, unions, and other schema constructs. Immediate and synchronous."
+      },
       {
         "concept": "Plan",
         "description": "Describe a query via QueryBuilder. Returns a QueryPlan value. No I/O."
@@ -23,7 +26,7 @@
       "description": "A first-class, storable, and immutable value type containing a validated QueryNode tree, its parameter bindings, and its dependency set of SchemaIds.",
       "lifecyle": "Produced by .plan(). Fully validated at plan time. Storable and reusable. Valid subject for explain() and analyze().",
       "fields": [
-        "dependency_set: []SchemaId /* the complete set of all schema constructs (types, fields, roles, etc.) referenced by this plan. Includes Node<T> type references. Used for revalidation on schema ALTER." */
+        "dependency_set: []SchemaId /* the complete set of all schema constructs (types, fields, roles, etc.) referenced by this plan. Includes Node<T> type references. Used for revalidation on schema ALTER. */"
       ],
       "validity_states": ["valid", "invalid", "pending (internal only)"],
       "revalidation_on_alter": "Schema ALTER triggers synchronous plan revalidation [Decision 10]. Plans are moved to 'invalid' if revalidation fails (e.g., a dependency SchemaId is retired via DROP)."
@@ -126,12 +129,12 @@
       ],
       "result_type": {
         "TransactionResult": {
-          "committed": "Int /* statements successfully applied", */
-          "skipped": "Int /* statements skipped due to errors", */
+          "committed": "Int /* statements successfully applied */",
+          "skipped": "Int /* statements skipped due to errors */",
           "errors": "[]StatementError"
         },
         "StatementError": {
-          "statement_index": "u64 /* 0-based position within the transaction (or block)", */
+          "statement_index": "u64 /* 0-based position within the transaction (or block) */",
           "error_code": "Int",
           "message": "String",
           "details": "Object?"

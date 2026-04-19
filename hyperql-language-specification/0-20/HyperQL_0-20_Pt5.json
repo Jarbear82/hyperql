@@ -142,11 +142,11 @@
         "structure": {
           "username": "String",
           "namespace": "String",
-          "permissions": "[Permission] /* effective granted permissions", */
-          "denied": "[Permission] /* explicitly denied permissions", */
-          "inherited_from": "[String] /* namespaces that contributed grants", */
+          "permissions": "[Permission] /* effective granted permissions */",
+          "denied": "[Permission] /* explicitly denied permissions */",
+          "inherited_from": "[String] /* namespaces that contributed grants */",
           "strict_mode": "Bool",
-          "subnamespaces": "[{ namespace: String, permissions: [Permission], denied: [Permission] }] /* recursive breakdown" */
+          "subnamespaces": "[{ namespace: String, permissions: [Permission], denied: [Permission] }] /* recursive breakdown */"
         }
       },
       "SHOW_NAMESPACE": {
@@ -167,24 +167,40 @@
     "description": "Aggregation functions operate on collections in RETURN clauses with GROUP BY, @computed properties, and role collections. v0.19: AggFn is a formally separate enum. AggFn calls are a distinct AST variant (AggCallExpr) [Decision 5].",
     "structural_rules": "AggCallExpr is structurally forbidden in positions that accept only scalar expressions. Valid in: RETURN, WITH (projection), and HAVING.",
     "functions": [
-      { "name": "COUNT", "signature": "COUNT(expr | *) -> Int", "desc": "COUNT(*) counts all rows; COUNT(expr) counts non-nulls." },
+      {
+        "name": "COUNT",
+        "signature": "COUNT(expr | *) -> Int",
+        "desc": "COUNT(*) counts all rows; COUNT(expr) counts non-nulls."
+      },
       { "name": "SUM", "signature": "SUM(expr: Numeric) -> Numeric" },
       { "name": "AVG", "signature": "AVG(expr: Numeric) -> Float" },
       { "name": "MIN", "signature": "MIN(expr: Comparable) -> T" },
       { "name": "MAX", "signature": "MAX(expr: Comparable) -> T" },
       { "name": "COLLECT", "signature": "COLLECT(expr: T) -> List<T>" },
-      { "name": "COLLECT_DISTINCT", "signature": "COLLECT_DISTINCT(expr: T) -> List<T>" },
-      { "name": "STRING_AGG", "signature": "STRING_AGG(expr: String, sep: String) -> String" },
+      {
+        "name": "COLLECT_DISTINCT",
+        "signature": "COLLECT_DISTINCT(expr: T) -> List<T>"
+      },
+      {
+        "name": "STRING_AGG",
+        "signature": "STRING_AGG(expr: String, sep: String) -> String"
+      },
       { "name": "BOOL_AND", "signature": "BOOL_AND(expr: Bool) -> Bool" },
       { "name": "BOOL_OR", "signature": "BOOL_OR(expr: Bool) -> Bool" }
     ],
     "role_collection_aggregation": {
       "description": "Aggregation over (MANY) role collections and List<Node<T>> collections is built-in and does NOT require graph traversal.",
-      "examples": ["MATCH (c:Commute) RETURN c, COUNT(c.passengers) /* passengers is List<Node<Person>> */"]
+      "examples": [
+        "MATCH (c:Commute) RETURN c, COUNT(c.passengers) /* passengers is List<Node<Person>> */"
+      ]
     },
     "grouping_patterns": {
-      "sql_style": { "syntax": "RETURN agg_func(expr), group_expr GROUP BY group_expr" },
-      "with_style": { "syntax": "WITH group_expr AS alias, COLLECT(var) AS collection RETURN ..." }
+      "sql_style": {
+        "syntax": "RETURN agg_func(expr), group_expr GROUP BY group_expr"
+      },
+      "with_style": {
+        "syntax": "WITH group_expr AS alias, COLLECT(var) AS collection RETURN ..."
+      }
     },
     "user_defined_aggregates": {
       "description": "Custom aggregations defined via DEFINE AGGREGATE FUNCTION can be used interchangeably with built-in aggregation functions. Must be marked @pure. Graph access is forbidden.",
@@ -196,7 +212,12 @@
     "description": "Window functions perform calculations across a set of rows related to the current row. v0.19: WindowFn is a formally separate enum. WindowCallExpr carries a WindowSpec [Decision 5].",
     "structural_rules": "Forbidden outside of RETURN and WITH (projection) contexts.",
     "syntax": "function() OVER (WindowSpec)",
-    "window_spec_fields": ["func: WindowFn", "partition_by: List<Expr>", "order_by: List<OrderExpr>", "frame: FrameSpec?"],
+    "window_spec_fields": [
+      "func: WindowFn",
+      "partition_by: List<Expr>",
+      "order_by: List<OrderExpr>",
+      "frame: FrameSpec?"
+    ],
     "ranking_functions": [
       { "name": "ROW_NUMBER", "sig": "ROW_NUMBER() -> Int" },
       { "name": "RANK", "sig": "RANK() -> Int" },
@@ -225,8 +246,11 @@
         "RANGE": "Defined in terms of logical distance. Requires numeric/date ORDER BY."
       },
       "bounds": [
-        "UNBOUNDED PRECEDING", "UNBOUNDED FOLLOWING", "CURRENT ROW",
-        "N PRECEDING (N non-negative integer literal/param)", "N FOLLOWING"
+        "UNBOUNDED PRECEDING",
+        "UNBOUNDED FOLLOWING",
+        "CURRENT ROW",
+        "N PRECEDING (N non-negative integer literal/param)",
+        "N FOLLOWING"
       ],
       "defaults": {
         "with_order_by": "RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW",

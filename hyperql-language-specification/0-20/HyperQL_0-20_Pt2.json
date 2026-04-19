@@ -60,9 +60,9 @@
       },
       "failure_modes": "If type context cannot be uniquely inferred, the engine emits [2021] Unresolvable Enum Shorthand.",
       "examples": [
-        "SET q.Status = .ACTIVE; /* expected Enum<QuestStatus>", */
-        "WHERE i.Rarity >= .RARE; /* expected Enum<Rarity>", */
-        "SET d.Types = .FIRE | .COLD; /* context established by .FIRE propagates to .COLD" */
+        "SET q.Status = .ACTIVE; /* expected Enum<QuestStatus> */",
+        "WHERE i.Rarity >= .RARE; /* expected Enum<Rarity> */",
+        "SET d.Types = .FIRE | .COLD; /* context established by .FIRE propagates to .COLD */"
       ]
     },
     "bitwise_operators": {
@@ -115,11 +115,11 @@
           "cache_lifetime": "Query start to final RETURN",
           "cache_behavior": {
             "multiple_references": "Computed once per row, reused within same query",
-            "example": "RETURN p.friend_count, p.friend_count * 2 /* Computed once, used twice", */
+            "example": "RETURN p.friend_count, p.friend_count * 2 /* Computed once, used twice */",
             "with_boundaries": "Cache survives WITH clauses if variable is passed through",
-            "example_with": "MATCH (p:Person) WITH p, p.friend_count AS fc RETURN fc /* Computed before WITH", */
+            "example_with": "MATCH (p:Person) WITH p, p.friend_count AS fc RETURN fc /* Computed before WITH */",
             "optional_match": "Cache cleared for null-binding rows from OPTIONAL MATCH",
-            "example_optional": "OPTIONAL MATCH (p)-[:Friend]-(f) RETURN p.friend_count /* May execute twice if p has no friends", */
+            "example_optional": "OPTIONAL MATCH (p)-[:Friend]-(f) RETURN p.friend_count /* May execute twice if p has no friends */",
             "subqueries": "Each subquery execution has independent cache",
             "transaction_boundaries": "Cache does NOT survive across separate query executions"
           },

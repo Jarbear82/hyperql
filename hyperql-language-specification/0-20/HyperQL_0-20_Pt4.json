@@ -9,19 +9,45 @@
       "linear_pipeline": "MATCH -> WHERE -> WITH -> GROUP BY -> HAVING -> ORDER BY -> LIMIT/SKIP -> RETURN. Clauses hold optional references to the next node in the strand.",
       "branch_points": "UNION holds child pipelines. Subqueries (EXISTS, IN) embed child QueryPlans.",
       "node_variants": [
-        { "variant": "MatchNode", "fields": "type_handle, var_name, inline_predicates, next?", "desc": "Matches nodes by type. Supports dot-navigation through Node<T> fields." },
-        { "variant": "MatchPathNode", "fields": "start_var, end_var, edge_type, weight_field, weight_algo, var_name, next?" },
-        { "variant": "OptionalMatchNode", "fields": "type_handle, var_name, next?" },
+        {
+          "variant": "MatchNode",
+          "fields": "type_handle, var_name, inline_predicates, next?",
+          "desc": "Matches nodes by type. Supports dot-navigation through Node<T> fields."
+        },
+        {
+          "variant": "MatchPathNode",
+          "fields": "start_var, end_var, edge_type, weight_field, weight_algo, var_name, next?"
+        },
+        {
+          "variant": "OptionalMatchNode",
+          "fields": "type_handle, var_name, next?"
+        },
         { "variant": "WhereNode", "fields": "predicate: Expr, next?" },
         { "variant": "WithNode", "fields": "projections: [WithExpr], next?" },
         { "variant": "GroupByNode", "fields": "keys: [Expr], next?" },
-        { "variant": "HavingNode", "fields": "predicate: Expr, next?", "desc": "Filters grouped rows. Structurally valid only as a successor to GroupByNode /* [1001] if GROUP BY is absent. Aggregation expressions are evaluated against the grouped result set at this stage." }, */
+        {
+          "variant": "HavingNode",
+          "fields": "predicate: Expr, next?",
+          "desc": "Filters grouped rows. Structurally valid only as a successor to GroupByNode /* [1001] if GROUP BY is absent. Aggregation expressions are evaluated against the grouped result set at this stage. */"
+        },
         { "variant": "OrderByNode", "fields": "exprs: [OrderExpr], next?" },
         { "variant": "LimitNode", "fields": "count: u64, next?" },
         { "variant": "SkipNode", "fields": "count: u64, next?" },
-        { "variant": "ReturnNode", "fields": "exprs: [ReturnExpr], distinct: bool", "terminal": true },
-        { "variant": "UnionNode", "fields": "left: QueryPlan, right: QueryPlan, all: bool", "branch": true },
-        { "variant": "CrossTypeNode", "fields": "predicate: Expr?, view_hint?, next?", "desc": "Formal representation of CROSS_TYPE keyword." }
+        {
+          "variant": "ReturnNode",
+          "fields": "exprs: [ReturnExpr], distinct: bool",
+          "terminal": true
+        },
+        {
+          "variant": "UnionNode",
+          "fields": "left: QueryPlan, right: QueryPlan, all: bool",
+          "branch": true
+        },
+        {
+          "variant": "CrossTypeNode",
+          "fields": "predicate: Expr?, view_hint?, next?",
+          "desc": "Formal representation of CROSS_TYPE keyword."
+        }
       ]
     },
     "cross_type_node_strategy": {
@@ -35,14 +61,24 @@
       { "variant": "BareVar", "desc": "RETURN p" },
       { "variant": "FieldAccess", "desc": "RETURN p.name" },
       { "variant": "Aliased", "desc": "RETURN p.age AS age" },
-      { "variant": "ObjectLiteral", "desc": "RETURN { name: p.name, age: p.age }" },
+      {
+        "variant": "ObjectLiteral",
+        "desc": "RETURN { name: p.name, age: p.age }"
+      },
       { "variant": "TupleProjection", "desc": "RETURN p { name, age }" },
-      { "variant": "NestedTuple", "desc": "A struct literal whose values are themselves struct literals. Example: RETURN { location: { city: p.city, zip: p.zip } }" },
+      {
+        "variant": "NestedTuple",
+        "desc": "A struct literal whose values are themselves struct literals. Example: RETURN { location: { city: p.city, zip: p.zip } }"
+      },
       { "variant": "AggCall", "desc": "RETURN COUNT(f)" },
       { "variant": "WindowCall", "desc": "RETURN RANK() OVER (...)" }
     ],
     "order_expr": {
-      "fields": ["expr: scalar Expr", "direction: ASC|DESC", "nulls: FIRST|LAST"],
+      "fields": [
+        "expr: scalar Expr",
+        "direction: ASC|DESC",
+        "nulls: FIRST|LAST"
+      ],
       "defaults": "NULLS LAST for ASC, NULLS FIRST for DESC."
     },
     "parameter_binding": {
@@ -125,7 +161,9 @@
           "on_create": "Can set @readonly fields",
           "on_match": "Cannot modify @readonly fields - error [3023]"
         },
-        "computed_fields": { "behavior": "@computed fields cannot be set via MERGE [2040]" }
+        "computed_fields": {
+          "behavior": "@computed fields cannot be set via MERGE [2040]"
+        }
       }
     },
     {
@@ -237,7 +275,10 @@
       "description": "Filters grouped rows after GROUP BY aggregation. Valid only when a GROUP BY clause is present. Conditions may reference aggregation expressions and GROUP BY keys. Block syntax implies AND. Bare field references that are neither aggregated nor grouped are forbidden [1001].",
       "example": "MATCH (p:Person) RETURN [ p.Department, AVG(p.Salary) AS avg_sal ] GROUP BY p.Department HAVING AVG(p.Salary) > 50000;"
     },
-    { "keyword": "ORDER BY", "syntax": "ORDER BY expression [ASC|DESC] [NULLS FIRST|LAST]" },
+    {
+      "keyword": "ORDER BY",
+      "syntax": "ORDER BY expression [ASC|DESC] [NULLS FIRST|LAST]"
+    },
     { "keyword": "LIMIT", "syntax": "LIMIT count" },
     { "keyword": "SKIP", "syntax": "SKIP count" },
     { "keyword": "DISTINCT", "syntax": "RETURN DISTINCT ..." },
@@ -250,7 +291,10 @@
       "keyword": "RETURN",
       "syntax": "RETURN [DISTINCT] entry, ... | RETURN [DISTINCT] [ entry, ... ]",
       "description": "Final projection. Level 2 block syntax supported.",
-      "tuple_syntax": { "projection": "var { field1, ... }", "literal": "{ field: expr, ... }" },
+      "tuple_syntax": {
+        "projection": "var { field1, ... }",
+        "literal": "{ field: expr, ... }"
+      },
       "example": "RETURN [ p.name, p.age ]"
     },
     { "keyword": "USE INDEX", "syntax": "USE INDEX IndexName" }
@@ -264,7 +308,7 @@
     "type_binding": {
       "method": "Implicit from first use",
       "description": "Parameter types are inferred from context on first use. Subsequent uses must match the inferred type.",
-      "example": "MATCH (p:Person { age: $age }) /* $age inferred as Int" */
+      "example": "MATCH (p:Person { age: $age }) /* $age inferred as Int */"
     },
     "usage_contexts": [
       {
@@ -317,7 +361,7 @@
     },
     "null_handling": {
       "description": "v0.19: Null parameter values are allowed for nullable fields.",
-      "example": "MATCH (p:Person { middle_name: $middle }) /* $middle can be null" */
+      "example": "MATCH (p:Person { middle_name: $middle }) /* $middle can be null */"
     }
   },
   "system_management": {
@@ -329,15 +373,28 @@
       { "keyword": "SHOW VIEWS" },
       { "keyword": "SHOW VIEW", "syntax": "SHOW VIEW ViewName" },
       { "keyword": "DROP VIEW", "syntax": "DROP VIEW ViewName" },
-      { "keyword": "VALIDATE VIEW", "syntax": "VALIDATE VIEW ViewName", "returns": "ValidateViewResult" },
+      {
+        "keyword": "VALIDATE VIEW",
+        "syntax": "VALIDATE VIEW ViewName",
+        "returns": "ValidateViewResult"
+      },
       { "keyword": "SHOW FIELDS" },
       { "keyword": "SHOW SCHEMA" },
       { "keyword": "SHOW FUNCTIONS" },
       { "keyword": "SHOW FUNCTION", "syntax": "SHOW FUNCTION Name" },
       { "keyword": "SHOW MATERIALIZED VIEWS" },
-      { "keyword": "VALIDATE MATERIALIZED VIEW", "syntax": "VALIDATE MATERIALIZED VIEW Name" },
-      { "keyword": "REBUILD MATERIALIZED VIEW", "syntax": "REBUILD MATERIALIZED VIEW Name" },
-      { "keyword": "DROP MATERIALIZED VIEW", "syntax": "DROP MATERIALIZED VIEW Name" },
+      {
+        "keyword": "VALIDATE MATERIALIZED VIEW",
+        "syntax": "VALIDATE MATERIALIZED VIEW Name"
+      },
+      {
+        "keyword": "REBUILD MATERIALIZED VIEW",
+        "syntax": "REBUILD MATERIALIZED VIEW Name"
+      },
+      {
+        "keyword": "DROP MATERIALIZED VIEW",
+        "syntax": "DROP MATERIALIZED VIEW Name"
+      },
       {
         "keyword": "VALIDATE CONSTRAINT",
         "syntax": "VALIDATE CONSTRAINT Type.ConstraintName;",
@@ -351,11 +408,7 @@
         "modes": {
           "default": {
             "output": "Human-readable text format showing plan tree",
-            "includes": [
-              "Operators",
-              "Estimated cost",
-              "Index usage"
-            ]
+            "includes": ["Operators", "Estimated cost", "Index usage"]
           },
           "verbose": {
             "syntax": "EXPLAIN VERBOSE query",
@@ -401,7 +454,10 @@
           }
         }
       },
-      { "keyword": "EXPLAIN FUNCTION", "syntax": "EXPLAIN FUNCTION Name(args)" },
+      {
+        "keyword": "EXPLAIN FUNCTION",
+        "syntax": "EXPLAIN FUNCTION Name(args)"
+      },
       {
         "keyword": "EXPLAIN CONSTRAINT",
         "syntax": "EXPLAIN CONSTRAINT Type.ConstraintName;",

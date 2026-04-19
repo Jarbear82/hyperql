@@ -341,7 +341,11 @@
         "category": "4xxx Runtime Errors",
         "severity": "ERROR",
         "message": "Cannot delete a node that has active edge connections or is referenced by a non-nullable Node<T> or List<Node<T>> field.",
-        "details": { "node_id": "NodeId", "connected_edge_count": "u64", "referencing_field_count": "u64" },
+        "details": {
+          "node_id": "NodeId",
+          "connected_edge_count": "u64",
+          "referencing_field_count": "u64"
+        },
         "suggestions": [
           "Use DETACH DELETE to remove all edge connections before deletion.",
           "Ensure no non-nullable Node<T> fields reference this node before deletion.",
@@ -566,9 +570,9 @@
         "abstract: bool",
         "fields: []FieldInfo",
         "constraints: []ConstraintInfo",
-        "extends: []NodeHandle | TraitHandle /* empty if no parents; one or more for EXTENDS [T1, T2, ...]; may reference both concrete node types and Traits", */
-        "primary_field: SchemaId? /* engine-inferred @unique @index field", */
-        "display_field: SchemaId? /* user-declared display label for the type" */
+        "extends: []NodeHandle | TraitHandle /* empty if no parents; one or more for EXTENDS [T1, T2, ...]; may reference both concrete node types and Traits */",
+        "primary_field: SchemaId? /* engine-inferred @unique @index field */",
+        "display_field: SchemaId? /* user-declared display label for the type */"
       ],
       "notes": [
         "schema_id and handle carry the same value. handle is retained for compatibility.",
@@ -586,8 +590,8 @@
         "roles: []InlineRoleInfo",
         "constraints: []ConstraintInfo",
         "extends: []EdgeHandle",
-        "primary_field: SchemaId? /* engine-inferred @unique @index field", */
-        "display_field: SchemaId? /* user-declared display label for the edge" */
+        "primary_field: SchemaId? /* engine-inferred @unique @index field */",
+        "display_field: SchemaId? /* user-declared display label for the edge */"
       ],
       "notes": [
         "primary_field follows same inference rule as NodeTypeInfo.",
@@ -606,7 +610,7 @@
     "AllowedTypeInfo": {
       "fields": [
         "type_handle: NodeHandle | TraitHandle",
-        "constraints: []ConstraintInfo /* per-type constraints within the role" */
+        "constraints: []ConstraintInfo /* per-type constraints within the role */"
       ]
     },
     "TraitInfo": {
@@ -633,19 +637,19 @@
     },
     "FieldConstraintInfo": {
       "fields": [
-        "decorator: String /* e.g. \"@min\", \"@max\", \"@pattern\"", */
-        "value: String /* the argument as a string" */
+        "decorator: String /* e.g. \"@min\", \"@max\", \"@pattern\" */",
+        "value: String /* the argument as a string */"
       ]
     },
     "ExplainConstraintResult": {
       "fields": [
-        "constraint_name:    String,      /* fully qualified Type.ConstraintName", */
-        "expression:         String,      /* constraint expression as canonical HyperQL string", */
-        "referenced_fields:  []String,    /* fields accessed during evaluation", */
-        "estimated_cost:     String,      /* \"low\" | \"medium\" | \"high\"", */
+        "constraint_name:    String,      /* fully qualified Type.ConstraintName */",
+        "expression:         String,      /* constraint expression as canonical HyperQL string */",
+        "referenced_fields:  []String,    /* fields accessed during evaluation */",
+        "estimated_cost:     String,      /* \"low\" | \"medium\" | \"high\" */",
         "uses_udf:           bool",
         "deferred:           bool",
-        "warnings:           []String     /* e.g. \"UDF in constraint may slow bulk writes\"" */
+        "warnings:           []String     /* e.g. \"UDF in constraint may slow bulk writes\" */"
       ]
     },
     "AnalyzeConstraintResult": {
@@ -656,7 +660,7 @@
         "violation_count:    u64",
         "sample_violations:  []NodeId",
         "execution_time_ms:  f64",
-        "avg_eval_time_us:   f64          /* average per-row evaluation in microseconds" */
+        "avg_eval_time_us:   f64          /* average per-row evaluation in microseconds */"
       ]
     },
     "ExplainStage": {
@@ -682,11 +686,7 @@
     },
     "ConstraintInfo": {
       "description": "One entry in NodeTypeInfo.constraints.",
-      "fields": [
-        "name: String",
-        "expression: String",
-        "deferred: bool"
-      ]
+      "fields": ["name: String", "expression: String", "deferred: bool"]
     },
     "ValidateConstraintResult": {
       "description": "Return type of VALIDATE CONSTRAINT Type.ConstraintName.",
@@ -707,9 +707,7 @@
     },
     "ShowPreparedStatementsResult": {
       "description": "Return type of SHOW PREPARED STATEMENTS.",
-      "fields": [
-        "statements: []PreparedStatementInfo"
-      ]
+      "fields": ["statements: []PreparedStatementInfo"]
     },
     "PreparedStatementInfo": {
       "fields": [
@@ -881,11 +879,11 @@
     "complex_workflows": [
       {
         "description": "Multi-stage analysis pipeline",
-        "query": "-- Stage 1: Find active users\nMATCH (u:User)\nWHERE u.LastLogin > \"2025-01-01\"\nWITH u\n\n/* Stage 2: Calculate their activity scores\nWITH u, \n  (MATCH (u)-[:Posted]->(p:Post) RETURN COUNT(p)) AS post_count,\n  (MATCH (u)-[:Liked]->(l) RETURN COUNT(l)) AS like_count\nWITH u, post_count, like_count,\n  post_count * 2 + like_count AS activity_score\n\n-- Stage 3: Rank and filter\nWITH u, activity_score,\n  RANK() OVER (ORDER BY activity_score DESC) AS rank\nWHERE rank <= 100\n\nRETURN u.Name, activity_score, rank\nORDER BY rank;" */
+        "query": "-- Stage 1: Find active users\nMATCH (u:User)\nWHERE u.LastLogin > \"2025-01-01\"\nWITH u\n\n/* Stage 2: Calculate their activity scores\nWITH u, \n  (MATCH (u)-[:Posted]->(p:Post) RETURN COUNT(p)) AS post_count,\n  (MATCH (u)-[:Liked]->(l) RETURN COUNT(l)) AS like_count\nWITH u, post_count, like_count,\n  post_count * 2 + like_count AS activity_score\n\n-- Stage 3: Rank and filter\nWITH u, activity_score,\n  RANK() OVER (ORDER BY activity_score DESC) AS rank\nWHERE rank <= 100\n\nRETURN u.Name, activity_score, rank\nORDER BY rank; */"
       },
       {
         "description": "Recommendation engine",
-        "query": "-- Find similar users based on shared interests\nMATCH (me:User {Id: $user_id})\nMATCH (other:User)\nWHERE other.Id != me.Id\n  AND JACCARD_SIMILARITY(me, other, Interests) > 0.3\nWITH other, JACCARD_SIMILARITY(me, other, Interests) AS similarity\n\n/* Get items they liked that I haven't\nMATCH (other)-[:Liked]->(item:Item)\nWHERE NOT EXISTS (MATCH (me)-[:Liked]->(item))\n\n-- Aggregate and rank recommendations\nWITH item, SUM(similarity) AS total_similarity, COUNT(other) AS recommender_count\nWHERE recommender_count >= 3\nRETURN item.Name, total_similarity, recommender_count\nORDER BY total_similarity DESC\nLIMIT 20;" */
+        "query": "-- Find similar users based on shared interests\nMATCH (me:User {Id: $user_id})\nMATCH (other:User)\nWHERE other.Id != me.Id\n  AND JACCARD_SIMILARITY(me, other, Interests) > 0.3\nWITH other, JACCARD_SIMILARITY(me, other, Interests) AS similarity\n\n/* Get items they liked that I haven't\nMATCH (other)-[:Liked]->(item:Item)\nWHERE NOT EXISTS (MATCH (me)-[:Liked]->(item))\n\n-- Aggregate and rank recommendations\nWITH item, SUM(similarity) AS total_similarity, COUNT(other) AS recommender_count\nWHERE recommender_count >= 3\nRETURN item.Name, total_similarity, recommender_count\nORDER BY total_similarity DESC\nLIMIT 20; */"
       }
     ]
   },
@@ -906,7 +904,7 @@
       {
         "pattern": "Use indexes for filtering",
         "anti_pattern": "MATCH (p:Person) WHERE p.email = $email",
-        "better": "DEFINE FIELD email: String @unique @index; /* Then same query uses index", */
+        "better": "DEFINE FIELD email: String @unique @index; /* Then same query uses index */",
         "reason": "Filtered scans are O(n), indexed lookups are O(log n)"
       },
       {
@@ -1020,7 +1018,7 @@
       {
         "scenario": "Handling constraint violations during migration",
         "approach": "Strict validation prevents bad migrations",
-        "example": "-- This fails if any person.age > 150:\nALTER NODE Person { ADD CONSTRAINT max_age: age <= 150 };\n/* Error [3030]: Migration Validation Failed\n--   Violated by: [person_id_123, person_id_456]\n--   Constraint: max_age (age <= 150)\n\n-- Fix violating data first:\nMATCH (p:Person) WHERE p.age > 150 SET p.age = null;\n-- Then retry ALTER" */
+        "example": "-- This fails if any person.age > 150:\nALTER NODE Person { ADD CONSTRAINT max_age: age <= 150 };\n/* Error [3030]: Migration Validation Failed\n--   Violated by: [person_id_123, person_id_456]\n--   Constraint: max_age (age <= 150)\n\n-- Fix violating data first:\nMATCH (p:Person) WHERE p.age > 150 SET p.age = null;\n-- Then retry ALTER */"
       }
     ],
     "validation_workflow": {
@@ -1056,9 +1054,7 @@
         "Structs retained as globally-defined value types with inline storage guarantees. Distinct from Traits.",
         "Block comment syntax /* */ formally specified as the only supported comment form. Line comments (//) are not supported. Prior versions left comment syntax implementation-defined."
       ],
-      "removed_warnings": [
-        "[WARN-PERF-003] - Retired alongside @cold removal."
-      ]
+      "removed_warnings": ["[WARN-PERF-003] - Retired alongside @cold removal."]
     },
     "0.19": {
       "release_date": "2026-03-08",
