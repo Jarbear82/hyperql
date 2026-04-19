@@ -1,0 +1,439 @@
+{
+  "hyperql_version": "0.20",
+  "part": "4_clients_and_tooling",
+  "query_architecture": {
+    "section": "B. Query Architecture",
+    "description": "v0.19 defines the internal QueryPlan structure and execution strand model [Decision 4].",
+    "query_node_tree": {
+      "model": "Hybrid Structural Model",
+      "linear_pipeline": "MATCH -> WHERE -> WITH -> GROUP BY -> HAVING -> ORDER BY -> LIMIT/SKIP -> RETURN. Clauses hold optional references to the next node in the strand.",
+      "branch_points": "UNION holds child pipelines. Subqueries (EXISTS, IN) embed child QueryPlans.",
+      "node_variants": [
+        { "variant": "MatchNode", "fields": "type_handle, var_name, inline_predicates, next?", "desc": "Matches nodes by type. Supports dot-navigation through Node<T> fields." },
+        { "variant": "MatchPathNode", "fields": "start_var, end_var, edge_type, weight_field, weight_algo, var_name, next?" },
+        { "variant": "OptionalMatchNode", "fields": "type_handle, var_name, next?" },
+        { "variant": "WhereNode", "fields": "predicate: Expr, next?" },
+        { "variant": "WithNode", "fields": "projections: [WithExpr], next?" },
+        { "variant": "GroupByNode", "fields": "keys: [Expr], next?" },
+        { "variant": "HavingNode", "fields": "predicate: Expr, next?", "desc": "Filters grouped rows. Structurally valid only as a successor to GroupByNode /* [1001] if GROUP BY is absent. Aggregation expressions are evaluated against the grouped result set at this stage." }, */
+        { "variant": "OrderByNode", "fields": "exprs: [OrderExpr], next?" },
+        { "variant": "LimitNode", "fields": "count: u64, next?" },
+        { "variant": "SkipNode", "fields": "count: u64, next?" },
+        { "variant": "ReturnNode", "fields": "exprs: [ReturnExpr], distinct: bool", "terminal": true },
+        { "variant": "UnionNode", "fields": "left: QueryPlan, right: QueryPlan, all: bool", "branch": true },
+        { "variant": "CrossTypeNode", "fields": "predicate: Expr?, view_hint?, next?", "desc": "Formal representation of CROSS_TYPE keyword." }
+      ]
+    },
+    "cross_type_node_strategy": {
+      "view_eligibility": [
+        "View defined over compatible predicate (same field access pattern).",
+        "View covers at least the fields referenced in predicate and RETURN projections."
+      ],
+      "fallback": "Full cross-partition scan if no eligible view exists. Emits [WARN-PERF-004] if unindexed."
+    },
+    "return_expr_variants": [
+      { "variant": "BareVar", "desc": "RETURN p" },
+      { "variant": "FieldAccess", "desc": "RETURN p.name" },
+      { "variant": "Aliased", "desc": "RETURN p.age AS age" },
+      { "variant": "ObjectLiteral", "desc": "RETURN { name: p.name, age: p.age }" },
+      { "variant": "TupleProjection", "desc": "RETURN p { name, age }" },
+      { "variant": "NestedTuple", "desc": "A struct literal whose values are themselves struct literals. Example: RETURN { location: { city: p.city, zip: p.zip } }" },
+      { "variant": "AggCall", "desc": "RETURN COUNT(f)" },
+      { "variant": "WindowCall", "desc": "RETURN RANK() OVER (...)" }
+    ],
+    "order_expr": {
+      "fields": ["expr: scalar Expr", "direction: ASC|DESC", "nulls: FIRST|LAST"],
+      "defaults": "NULLS LAST for ASC, NULLS FIRST for DESC."
+    },
+    "parameter_binding": {
+      "description": "v0.19 uses plan-time inference [Decision 6]. Parameters are storable parts of a QueryPlan.",
+      "resolution_rules": [
+        "Inferred from schema context (e.g. p.age > $min_age where p is Person).",
+        "Ambiguous contexts require explicit annotation: $param: Type.",
+        "Ambiguity without annotation is hard error [2026] Parameter Type Ambiguous.",
+        "Value type checking against resolved type occurs at run-time [2025]."
+      ]
+    }
+  },
+  "arrow_operator_summary": {
+    "operators": {
+      "schema_arrows": {
+        "left_arrow": {
+          "symbol": "<-",
+          "meaning": "Source role (incoming)",
+          "example": "husband <- (1) ALLOWS Person"
+        },
+        "right_arrow": {
+          "symbol": "->",
+          "meaning": "Target role (outgoing)",
+          "example": "employer -> (1) ALLOWS Organization"
+        },
+        "bidirectional_arrow": {
+          "symbol": "<->",
+          "meaning": "Bidirectional role (symmetric)",
+          "example": "friend <-> (*) ALLOWS Person"
+        }
+      },
+      "instance_binding": {
+        "fat_arrow": {
+          "symbol": "=>",
+          "context": "CREATE EDGE / MERGE / MATCH",
+          "meaning": "Binds node to role (CREATE/MERGE) or filters by existing binding (MATCH). Target is a locally defined role name."
+        }
+      }
+    },
+    "design_rationale": "Visual distinction between schema (<- ->) and instance (=>) prevents ambiguity."
+  },
+  "write_clauses": [
+    {
+      "keyword": "CREATE NODE",
+      "syntax": "CREATE NODE var:Type { ... }; | CREATE NODE [ var:Type { ... }, ... ];",
+      "description": "Creates new node entities. Follows Level 1 (singular) and Level 2 (same-type batch) hierarchy.",
+      "batch_syntax": "CREATE NODE [ alice:Person { ... }, bob:Person { ... } ];",
+      "validation": "Evaluates all named node constraints. Fails with [3011] if any constraint is violated. Enforces [3015] if a required field with no default is omitted.",
+      "example": "CREATE NODE alice:Person { id = UUID(), name = \"Alice\", age = 25 };"
+    },
+    {
+      "keyword": "CREATE EDGE",
+      "syntax": "CREATE EDGE var:Type { ... }; | CREATE EDGE [ var:Type { ... }, ... ];",
+      "description": "Creates new hyperedges. Roles carry their full definition inline. Role binding uses '=>'.",
+      "batch_syntax": "CREATE EDGE [ e1:Type { role => n1 }, e2:Type { role => n2 } ];",
+      "binding_operator": {
+        "symbol": "=>",
+        "purpose": "Binds a node instance to a locally defined role"
+      },
+      "validation": {
+        "order": "1. Validate nodes exist and match ALLOWS types, 2. Validate cardinality bounds, 3. Validate role constraints, 4. Validate edge constraints",
+        "error_codes": "[3014] for cardinality, [3012] for role, [3013] for edge"
+      },
+      "example": "CREATE EDGE m:Marriage { husband => doug, wife => nini, date = DATE(\"1999/08/20\") };"
+    },
+    {
+      "keyword": "CREATE [mixed]",
+      "syntax": "CREATE [ NODE [ ... ], EDGE [ ... ] ];",
+      "description": "Level 3 batch: Cross-type atomic creation with shared variable scope.",
+      "atomicity": "The entire statement is atomic (all-or-nothing). Error in any entry rolls back the entire batch.",
+      "example": "CREATE [ NODE [ lucy:Person { ... }, nova:Dog { ... } ], EDGE [ own:Owns { owner => lucy, pet => nova } ] ];"
+    },
+    {
+      "keyword": "MERGE",
+      "syntax": "MERGE (var: TypeName { role => node, ... }) [ON CREATE SET ...] [ON MATCH SET ...]",
+      "description": "Upsert operation. Supports Property-Based Matching OR Role-Binding Matching (if @unique constraint exists on roles).",
+      "v020_semantics": "DEFAULT values apply ONLY on the ON CREATE path. Null in pattern acts as wildcard.",
+      "edge_cases": {
+        "readonly_fields": {
+          "on_create": "Can set @readonly fields",
+          "on_match": "Cannot modify @readonly fields - error [3023]"
+        },
+        "computed_fields": { "behavior": "@computed fields cannot be set via MERGE [2040]" }
+      }
+    },
+    {
+      "keyword": "MERGE OBJECT",
+      "syntax": "MERGE OBJECT variable WITH $map",
+      "description": "Soft property merge update from a parameter map."
+    },
+    {
+      "keyword": "SET (bulk update)",
+      "syntax": "SET variable += { field = value, ... }",
+      "description": "Bulk property update. Merges provided properties into node/edge, preserving unmentioned fields.",
+      "example": "MATCH (p:Person { id = $id }) SET p += { active = true, last_updated = NOW() };"
+    },
+    {
+      "keyword": "SET +=",
+      "syntax": "SET variable.role += node | SET variable.role += [node1, node2]",
+      "description": "Atomic Append. Adds node(s) to a role collection. Enforces cardinality [3014]."
+    },
+    {
+      "keyword": "SET -=",
+      "syntax": "SET variable.role -= node",
+      "description": "Atomic Remove. Removes node(s) from a role collection. Enforces cardinality [3014]."
+    },
+    {
+      "keyword": "SET",
+      "syntax": "SET variable.field = value | SET variable.role = [n1, n2]",
+      "description": "Updates specific properties or fully replaces a role collection. Assigning to a Node<T> field sets the identity reference."
+    },
+    {
+      "keyword": "DELETE",
+      "syntax": "DELETE variable",
+      "description": "Deletes a node or edge. Fails if connected [4001]. For Node<T> references: blocks deletion if a non-nullable Node<T> field references this node; nulls the reference if the field is nullable (Node<T>?)."
+    },
+    {
+      "keyword": "DETACH DELETE",
+      "syntax": "DETACH DELETE variable",
+      "description": "Removes connections then deletes node."
+    }
+  ],
+  "read_clauses": [
+    {
+      "keyword": "IMPORT",
+      "syntax": "IMPORT Name.Space; | IMPORT SCHEMA Name FROM Name.Space; | IMPORT \"Path\" AS Alias",
+      "description": "Imports namespaces or named schema units."
+    },
+    {
+      "keyword": "MATCH",
+      "syntax": "MATCH pattern | MATCH [ pattern, ... ]",
+      "description": "Matches nodes and edges. Supports dot-navigation through Node<T> fields (MATCH (t:Team) WHERE t.lead.name == \"Alice\"). Level 2 batching supported for patterns. Supports MATCH FROM ViewName.",
+      "role_match_pattern": {
+        "syntax": "MATCH (e:EdgeType { role => node })",
+        "description": "Hyperedges retrievable by role binding.",
+        "example": "MATCH (e:Marriage { husband => doug, date: DATE(\"1999/08/20\") })"
+      },
+      "syntax_enforcement": {
+        "note": "':' for filters, '=' for assignments. Mixing is Syntax Error [1001]."
+      }
+    },
+    {
+      "keyword": "MATCH PATH",
+      "syntax": "MATCH PATH var = (start)-[:Edge* {role} WEIGHT BY field USING algo]->(end)",
+      "description": "Variable-length path query. algo: SUM|MAX|MIN|AVG."
+    },
+    {
+      "keyword": "OPTIONAL MATCH",
+      "syntax": "OPTIONAL MATCH ...",
+      "description": "Matches pattern or returns nulls."
+    },
+    {
+      "keyword": "WHERE",
+      "syntax": "WHERE condition | WHERE [ condition, ... ]",
+      "description": "Filters matched results. Level 2 block syntax implies AND.",
+      "example": "WHERE [ p.age > 18, p.active == true ]"
+    },
+    {
+      "keyword": "EXISTS",
+      "syntax": "EXISTS (subquery)",
+      "description": "True if subquery produces any rows."
+    },
+    {
+      "keyword": "IN",
+      "syntax": "expression IN (subquery)",
+      "description": "True if expression matches any subquery result."
+    },
+    {
+      "keyword": "IS NULL / IS NOT NULL",
+      "syntax": "field IS NULL | field IS NOT NULL"
+    },
+    {
+      "keyword": "LIKE / ILIKE",
+      "syntax": "string LIKE pattern",
+      "description": "SQL-style pattern matching."
+    },
+    {
+      "keyword": "MATCHES / IMATCHES",
+      "syntax": "string MATCHES regex",
+      "description": "Regular expression matching."
+    },
+    {
+      "keyword": "WITH",
+      "syntax": "WITH var, ... | WITH [ entry, ... ]",
+      "description": "Pipeline barrier. Level 2 block syntax supported.",
+      "example": "WITH [ p.age AS age, p.name AS name ]"
+    },
+    { "keyword": "GROUP BY", "syntax": "GROUP BY expression, ..." },
+    {
+      "keyword": "HAVING",
+      "syntax": "HAVING condition | HAVING [ condition, ... ]",
+      "description": "Filters grouped rows after GROUP BY aggregation. Valid only when a GROUP BY clause is present. Conditions may reference aggregation expressions and GROUP BY keys. Block syntax implies AND. Bare field references that are neither aggregated nor grouped are forbidden [1001].",
+      "example": "MATCH (p:Person) RETURN [ p.Department, AVG(p.Salary) AS avg_sal ] GROUP BY p.Department HAVING AVG(p.Salary) > 50000;"
+    },
+    { "keyword": "ORDER BY", "syntax": "ORDER BY expression [ASC|DESC] [NULLS FIRST|LAST]" },
+    { "keyword": "LIMIT", "syntax": "LIMIT count" },
+    { "keyword": "SKIP", "syntax": "SKIP count" },
+    { "keyword": "DISTINCT", "syntax": "RETURN DISTINCT ..." },
+    {
+      "keyword": "UNION",
+      "syntax": "UNION | UNION ALL",
+      "description": "Combines results. Branches must have equal column counts [2001]. Mismatched aliases produce [WARN-SCHEMA-004] and use left branch alias. Column types must unify: Int/Float -> Float, T/T? -> T?, common abstract parent -> Parent. All others fail with [2001]."
+    },
+    {
+      "keyword": "RETURN",
+      "syntax": "RETURN [DISTINCT] entry, ... | RETURN [DISTINCT] [ entry, ... ]",
+      "description": "Final projection. Level 2 block syntax supported.",
+      "tuple_syntax": { "projection": "var { field1, ... }", "literal": "{ field: expr, ... }" },
+      "example": "RETURN [ p.name, p.age ]"
+    },
+    { "keyword": "USE INDEX", "syntax": "USE INDEX IndexName" }
+  ],
+  "query_parameters": {
+    "description": "HyperQL supports parameterized queries for security, performance, and query plan caching.",
+    "syntax": {
+      "declaration": "$parameter_name",
+      "description": "Parameters use $ prefix followed by identifier. Case-sensitive."
+    },
+    "type_binding": {
+      "method": "Implicit from first use",
+      "description": "Parameter types are inferred from context on first use. Subsequent uses must match the inferred type.",
+      "example": "MATCH (p:Person { age: $age }) /* $age inferred as Int" */
+    },
+    "usage_contexts": [
+      {
+        "context": "Property matching",
+        "example": "MATCH (p:Person { name: $name, age: $age })"
+      },
+      {
+        "context": "WHERE clauses",
+        "example": "WHERE p.salary > $min_salary"
+      },
+      {
+        "context": "SET operations",
+        "example": "SET p.status = $new_status"
+      },
+      {
+        "context": "Edge creation",
+        "example": "CREATE EDGE m:Marriage { date: $wedding_date, husband => $h, wife => $w }"
+      },
+      {
+        "context": "Collections",
+        "example": "WHERE p.id IN $id_list"
+      },
+      {
+        "context": "LIMIT/SKIP",
+        "example": "LIMIT $page_size SKIP $offset"
+      }
+    ],
+    "query_preparation": {
+      "support": "Queries with parameters can be prepared and cached.",
+      "scope_variants": {
+        "session": "Dropped automatically when session ends. PREPARE stmt AS ..."
+      },
+      "execution": "EXECUTE stmt WITH { id: \"123...\" };",
+      "lifecycle": {
+        "management": "DROP PREPARE stmt; SHOW PREPARED STATEMENTS;",
+        "returns": "ShowPreparedStatementsResult",
+        "revalidation": "Session-scoped statements do not persist across schema ALTER operations. If a schema ALTER occurs mid-session, subsequently executing a prepared statement that references altered constructs will fail with [2023] Stale QueryPlan. Re-prepare the statement to obtain a fresh plan.",
+        "limits": "Session limit implementation-defined; MUST support 256. Exceeding limit produces [5010]."
+      },
+      "benefits": [
+        "Query plan reuse across executions",
+        "Reduced parsing overhead",
+        "SQL injection prevention"
+      ]
+    },
+    "type_safety": {
+      "validation": "Parameters are type-checked before execution",
+      "error": "[2025] Parameter type mismatch",
+      "example_error": "Parameter $age expects Int, received String \"25\""
+    },
+    "null_handling": {
+      "description": "v0.19: Null parameter values are allowed for nullable fields.",
+      "example": "MATCH (p:Person { middle_name: $middle }) /* $middle can be null" */
+    }
+  },
+  "system_management": {
+    "introspection": [
+      { "keyword": "SHOW NODE TYPES" },
+      { "keyword": "SHOW EDGE TYPES" },
+      { "keyword": "SHOW TRAITS" },
+      { "keyword": "SHOW TRAIT", "syntax": "SHOW TRAIT TraitName" },
+      { "keyword": "SHOW VIEWS" },
+      { "keyword": "SHOW VIEW", "syntax": "SHOW VIEW ViewName" },
+      { "keyword": "DROP VIEW", "syntax": "DROP VIEW ViewName" },
+      { "keyword": "VALIDATE VIEW", "syntax": "VALIDATE VIEW ViewName", "returns": "ValidateViewResult" },
+      { "keyword": "SHOW FIELDS" },
+      { "keyword": "SHOW SCHEMA" },
+      { "keyword": "SHOW FUNCTIONS" },
+      { "keyword": "SHOW FUNCTION", "syntax": "SHOW FUNCTION Name" },
+      { "keyword": "SHOW MATERIALIZED VIEWS" },
+      { "keyword": "VALIDATE MATERIALIZED VIEW", "syntax": "VALIDATE MATERIALIZED VIEW Name" },
+      { "keyword": "REBUILD MATERIALIZED VIEW", "syntax": "REBUILD MATERIALIZED VIEW Name" },
+      { "keyword": "DROP MATERIALIZED VIEW", "syntax": "DROP MATERIALIZED VIEW Name" },
+      {
+        "keyword": "VALIDATE CONSTRAINT",
+        "syntax": "VALIDATE CONSTRAINT Type.ConstraintName;",
+        "description": "Runs the named constraint against all existing data. All constraints must be user-declared. DROP CONSTRAINT references the user-declared name.",
+        "returns": "ValidateConstraintResult"
+      },
+      {
+        "keyword": "EXPLAIN",
+        "syntax": "EXPLAIN [VERBOSE | JSON] query",
+        "description": "Shows query execution plan without running the query",
+        "modes": {
+          "default": {
+            "output": "Human-readable text format showing plan tree",
+            "includes": [
+              "Operators",
+              "Estimated cost",
+              "Index usage"
+            ]
+          },
+          "verbose": {
+            "syntax": "EXPLAIN VERBOSE query",
+            "output": "Detailed plan with additional statistics",
+            "includes": [
+              "Estimated row counts",
+              "Memory estimates",
+              "Join strategies",
+              "Filter selectivity"
+            ]
+          },
+          "json": {
+            "syntax": "EXPLAIN JSON query",
+            "output": "Machine-readable JSON format",
+            "structure": {
+              "plan": "Nested operator tree",
+              "costs": "Estimated costs per operator",
+              "warnings": "Performance warnings array"
+            }
+          }
+        },
+        "example": "EXPLAIN VERBOSE MATCH (p:Person) WHERE p.age > 30 RETURN p;"
+      },
+      {
+        "keyword": "ANALYZE",
+        "syntax": "ANALYZE [VERBOSE | JSON] query",
+        "description": "Executes query and shows actual execution statistics alongside plan",
+        "modes": {
+          "default": {
+            "output": "Plan with actual row counts and timing"
+          },
+          "verbose": {
+            "output": "Detailed execution statistics including cache hits, I/O operations",
+            "includes": [
+              "Actual vs estimated rows",
+              "Execution time per operator",
+              "Memory usage",
+              "Index effectiveness"
+            ]
+          },
+          "json": {
+            "output": "Machine-readable execution profile"
+          }
+        }
+      },
+      { "keyword": "EXPLAIN FUNCTION", "syntax": "EXPLAIN FUNCTION Name(args)" },
+      {
+        "keyword": "EXPLAIN CONSTRAINT",
+        "syntax": "EXPLAIN CONSTRAINT Type.ConstraintName;",
+        "description": "Returns static analysis of a constraint expression without executing it.",
+        "returns": "ExplainConstraintResult"
+      },
+      {
+        "keyword": "ANALYZE CONSTRAINT",
+        "syntax": "ANALYZE CONSTRAINT Type.ConstraintName;",
+        "description": "Executes the constraint against all existing data and returns runtime statistics.",
+        "returns": "AnalyzeConstraintResult"
+      }
+    ],
+    "configuration": {
+      "constraint_limits": {
+        "description": "Operational limits to prevent abuse and ensure stability.",
+        "defaults": {
+          "max_constraints_per_node": 50,
+          "max_expression_depth": 15,
+          "constraint_timeout_ms": 100
+        },
+        "modification": "SET CONSTRAINT LIMIT key = value;"
+      },
+      "udf_limits": {
+        "description": "Interpreter safety limits to prevent infinite loops and stack overflows.",
+        "defaults": {
+          "max_recursion_depth": 50,
+          "max_loop_iterations": 10000
+        },
+        "modification": "SET UDF LIMIT key = value;"
+      }
+    }
+  },
+  "whitespace_free_readability_guarantee": "All v0.20 block syntax forms are unambiguous even if all whitespace is removed, enabled by balanced delimiters ([, ] and {, })."
+}

@@ -1,0 +1,41 @@
+{
+  "hyperql_version": "0.20",
+  "part": "8_formal_grammar",
+  "ebnf_partial": {
+    "description": "Formal EBNF for core HyperQL v0.20 constructs. This is a normative partial grammar; a full EBNF is provided in the reference implementation documentation.",
+    "rules": [
+      "Comment  ::= '/*' (CharSequence - '*/') '*/'",
+      "Token    ::= Comment | Statement | Whitespace   /* Comments and whitespace are discarded before parsing */",
+      "Statement      ::= (Definition | Mutation | Query | Transaction) ';'",
+      "Definition     ::= ('DEFINE' (SingularDef | BatchDef | ContainedScope))",
+      "SingularDef    ::= NamespaceDef | EnumDef | FieldDef | NodeDef | EdgeDef | TraitDef | ViewDef | UnionDef | ...",
+      "BatchDef       ::= Keyword '[' Entry (',' Entry)* ']' | '[' (Keyword BatchDef)* ']'",
+      "ContainedScope ::= (NamespaceDef | SchemaDef) '[' (Definition)* ']'",
+      "Mutation       ::= Create | Merge | Set | Delete | Alter | Migrate",
+      "Alter          ::= 'ALTER' (NodeAlter | EdgeAlter | FieldAlter | SchemaAlter | BulkAlter)",
+      "NodeAlter      ::= 'NODE' ( TypeAlterSingular | TypeAlterBatch )",
+      "EdgeAlter      ::= 'EDGE' ( TypeAlterSingular | TypeAlterBatch )",
+      "FieldAlter     ::= 'FIELD' ( FieldAlterSingular | FieldAlterBatch )",
+      "TypeAlterSingular ::= Identifier ( AlterOps | '[' AlterOps (',' AlterOps)* ']' )",
+      "TypeAlterBatch    ::= '[' Identifier ( AlterOps | '[' AlterOps (',' AlterOps)* ']' ) (',' ...)* ']'",
+      "BulkAlter      ::= '[' ( ('NODE'|'EDGE'|'FIELD') TypeAlterBatch ) (',' ...)* ']'",
+      "AlterOps       ::= AddField | DropField | RenameField | AddConstraint | DropConstraint | EdgeRoleOp",
+      "AddConstraint  ::= 'ADD' 'CONSTRAINT' Identifier ':' Expression",
+      "DropConstraint ::= 'DROP' 'CONSTRAINT' Identifier",
+      "EdgeRoleOp     ::= ( 'ADD' | 'DROP' ) 'ROLE' Identifier ( RoleSpec )?",
+      "Query          ::= MatchClause (OptionalMatch)* (Where)? (With)* (GroupBy)? (Having)? (OrderBy)? (Limit)? (Skip)? (Return)",
+      "MatchClause    ::= 'MATCH' (Pattern | '[' Pattern (',' Pattern)* ']')",
+      "Where          ::= 'WHERE' (Expression | '[' Expression (',' Expression)* ']')",
+      "With           ::= 'WITH' (WithEntry | '[' WithEntry (',' WithEntry)* ']')",
+      "Return         ::= 'RETURN' ('DISTINCT')? (ReturnExpr | '[' ReturnExpr (',' ReturnExpr)* ']')",
+      "NamespaceDef   ::= 'NAMESPACE' Identifier ('.' Identifier)* (Block)?",
+      "EnumDef        ::= 'ENUM' Identifier (Type)? '{' EnumEntry (',' EnumEntry)* '}'",
+      "NodeDef        ::= 'NODE' Identifier (Extends)? Body (MetadataBlock)?",
+      "DataType       ::= Primitive | StructType | NodeType | ListType",
+      "NodeType       ::= 'Node' '<' Identifier '>'",
+      "ListType       ::= 'List' '<' DataType '>'",
+      "Body           ::= '{' (Entry (',' Entry)*)? '}'",
+      "MetadataBlock  ::= '{' MetadataEntry ( ',' MetadataEntry )* ','? '}'"
+    ]
+  }
+}

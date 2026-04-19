@@ -1,0 +1,40 @@
+{
+  "hyperql_version": "0.20",
+  "part": "9_core_v1_scope",
+  "v1_scope_mandate": {
+    "description": "Formal feature freeze for HyperQL Core v1. All features listed here are normative and must be supported by v1-compliant engines. No new core syntax will be added until v2.0.",
+    "core_features": [
+      "Strict Global Field Definitions",
+      "Node<T> Composition Type",
+      "Mandatory Purity Decorators for UDFs",
+      "Tiered Normative Storage Semantics",
+      "Hyperedge Model with Localized Roles and Extended Cardinality",
+      "Trait-Based Inheritance and Abstract Node Replacement",
+      "Named Views and Parameterized Query Fragments",
+      "Sum/Tagged Union Types for UDF Returns",
+      "Named Constraints and Structural Constraint Decorators",
+      "Explicit Schema Units and Namespaces",
+      "Synchronous Plan Revalidation",
+      "Standardized 4xxx/5xxx Error Codes",
+      "Atomic Batch [...] Syntax",
+      "Standard Expression Language (SEL)",
+      "UDAF Formal Accumulator Model",
+      "Role-Based Access Control (RBAC)",
+      "Point-Pair Similarity Built-ins",
+      "Universal Schema and Instance IDs",
+      "Per-Type Display Metadata",
+      "Namespace Block Nesting",
+      "Downward-Cascading Permission Inheritance",
+      "STRICT_PERMISSIONS Mode",
+      "Type Partition Authority Model",
+      "Schema-level 'IF NOT EXISTS' guards"
+    ],
+    "deferred_to_v2": [
+      "Temporal / Time-Travel Queries",
+      "Native JSON/CSV LOAD Statement",
+      "Distributed Partition Management",
+      "Recursive CTEs (beyond variable-depth match)",
+      "Trigger-Based Logic (External to @materialized)"
+    ]
+  }
+}

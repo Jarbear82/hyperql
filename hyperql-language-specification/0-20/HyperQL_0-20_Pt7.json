@@ -1,0 +1,1316 @@
+{
+  "hyperql_version": "0.20",
+  "part": "7_reference_appendices",
+  "error_codes": {
+    "description": "Standardized error codes for HyperQL exceptions. Format [XYYY]. All errors return a standardized JSON object.",
+    "json_format": {
+      "structure": {
+        "code": "Integer [XYYY]",
+        "category": "Error Category",
+        "severity": "ERROR|WARNING|INFO",
+        "message": "Human-readable description",
+        "details": "Context-specific object",
+        "suggestions": "List of remediation steps"
+      }
+    },
+    "categories": {
+      "1xxx": "Syntax & Parse Errors",
+      "2xxx": "Type & Schema Errors",
+      "3xxx": "Constraint Violations",
+      "4xxx": "Runtime Errors",
+      "5xxx": "Transaction Errors",
+      "6xxx": "Index & Storage Errors",
+      "9xxx": "System Errors"
+    },
+    "definitions": [
+      { "code": 1001, "name": "Syntax Error", "desc": "Unexpected token" },
+      {
+        "code": 1010,
+        "name": "Namespace Collision",
+        "desc": "Two files in the same namespace define the same name"
+      },
+      {
+        "code": 1011,
+        "name": "Unresolved Import",
+        "desc": "IMPORT references a namespace or name that does not exist"
+      },
+      {
+        "code": 1012,
+        "name": "Circular Import",
+        "desc": "Import chain creates a circular dependency"
+      },
+      {
+        "code": 1030,
+        "name": "Missing Purity Decorator",
+        "desc": "DEFINE FUNCTION has no decorator"
+      },
+      {
+        "code": 1050,
+        "name": "Const Reassignment",
+        "desc": "Assignment statement targets a CONST binding."
+      },
+      {
+        "code": 1051,
+        "name": "Missing Return Path",
+        "desc": "UDF body has no code path that reaches a RETURN."
+      },
+      {
+        "code": 1052,
+        "name": "Inline Field Type Declaration",
+        "desc": "Type body contains forbidden inline type annotation."
+      },
+      {
+        "code": 1053,
+        "name": "Undefined Field Reference",
+        "desc": "Type body references field with no matching DEFINE FIELD."
+      },
+      {
+        "code": 1058,
+        "name": "Invalid Decorator Expression",
+        "desc": "A structural constraint decorator references more than one field or contains an expression not valid in single-field context."
+      },
+      {
+        "code": 1059,
+        "name": "Non-Exhaustive Union Match",
+        "desc": "MATCH expression over a union type does not cover all variants and has no wildcard catch-all."
+      },
+      {
+        "code": 1060,
+        "name": "Illegal Decorator Placement",
+        "desc": "@deferred is not permitted on role ALLOWS constraint blocks; use it only on named constraints in node or edge constraint blocks."
+      },
+      { "code": 2001, "name": "Type Mismatch", "desc": "Expected X, got Y" },
+      {
+        "code": 2021,
+        "name": "Unresolvable Enum Shorthand",
+        "desc": "Shorthand (.Id) could not be resolved during type-checking."
+      },
+      {
+        "code": 2022,
+        "name": "Illegal Abstract Instantiation in Schema Context",
+        "desc": "Schema-level logic incorrectly assumes an abstract type is concrete."
+      },
+      {
+        "code": 2023,
+        "name": "Stale QueryPlan",
+        "desc": "A prepared statement's plan failed revalidation after a schema ALTER affected one of its dependency SchemaIds. Resolution: Re-prepare the statement."
+      },
+      {
+        "code": 2025,
+        "name": "Parameter Type Mismatch",
+        "desc": "Supplied value doesn't match resolved parameter type."
+      },
+      {
+        "code": 2026,
+        "name": "Parameter Type Ambiguous",
+        "desc": "$param in position where type cannot be inferred; annotation required."
+      },
+      {
+        "code": 2027,
+        "name": "Stale Schema Reference",
+        "desc": "A schema construct referenced by display: or a QueryPlan was dropped and its SchemaId retired."
+      },
+      {
+        "code": 2028,
+        "name": "Undefined Role ALLOWS Type",
+        "desc": "Edge role references a type that is not defined."
+      },
+      {
+        "code": 2029,
+        "name": "Role Constraint Field Not Found",
+        "desc": "Constraint in role ALLOWS block references a field not present on the allowed type."
+      },
+      {
+        "code": 2031,
+        "name": "Unified Role Constraint Field Mismatch",
+        "desc": "Constraint block follows a multi-type ALLOWS clause but a referenced field does not exist on all allowed types."
+      },
+      {
+        "code": 2032,
+        "name": "Trait Instantiation",
+        "desc": "Direct instantiation of a Trait via CREATE NODE. Replaces [4010] for the Trait case."
+      },
+      {
+        "code": 2033,
+        "name": "Circular View Reference",
+        "desc": "View definition creates a circular dependency with another view."
+      },
+      {
+        "code": 2034,
+        "name": "View Parameter Type Ambiguous",
+        "desc": "Parameter in view definition cannot have its type inferred. Annotation required."
+      },
+      {
+        "code": 2035,
+        "name": "Invalid Union Usage",
+        "desc": "Union type used in a position where it is not permitted (node body, edge body, field type, etc.)"
+      },
+      {
+        "code": 1054,
+        "name": "Reserved Identifier",
+        "desc": "_id is a reserved identifier and cannot be used as a field name."
+      },
+      {
+        "code": 1055,
+        "name": "Duplicate Metadata Key",
+        "desc": "Metadata key 'display' or 'constraints' appears more than once in the type metadata block."
+      },
+      {
+        "code": 1056,
+        "name": "Invalid Display Field Reference",
+        "desc": "Field name in display: declaration does not match any field in the type body."
+      },
+      {
+        "code": 1057,
+        "name": "Ambiguous Inherited Display Field",
+        "desc": "Type inherits conflicting display: declarations from multiple parents and must declare its own."
+      },
+      {
+        "code": 2030,
+        "name": "Ambiguous Function Call",
+        "desc": "Multiple function signatures match, cannot resolve"
+      },
+      {
+        "code": 2040,
+        "name": "Computed Field Mutation",
+        "category": "2xxx Type & Schema Errors",
+        "severity": "ERROR",
+        "message": "Field '$field' is @computed and cannot be assigned.",
+        "details": { "field_name": "String", "node_type": "String" },
+        "suggestions": [
+          "Remove the field from the CREATE, SET, or MERGE clause.",
+          "To change the computed value, modify the underlying fields the expression depends on."
+        ]
+      },
+      {
+        "code": 2054,
+        "name": "Purity Violation",
+        "desc": "Body or transitive call graph exceeds declared decorator [Decision 12]."
+      },
+      {
+        "code": 2055,
+        "name": "Illegal Constraint Call",
+        "desc": "@readonly or @nondeterministic UDF used in { constraints: {...} }"
+      },
+      {
+        "code": 2056,
+        "name": "Illegal Aggregate Decorator",
+        "desc": "DEFINE AGGREGATE FUNCTION marked non-@pure"
+      },
+      {
+        "code": 2060,
+        "name": "Partial Enum Values",
+        "desc": "Valued enum has mix of assigned and unassigned constants"
+      },
+      {
+        "code": 2061,
+        "name": "Duplicate Enum Value",
+        "desc": "Two constants share the same backing value"
+      },
+      {
+        "code": 2062,
+        "name": "Illegal Flags Value",
+        "desc": "<FLAGS> constant has explicit = value assignment"
+      },
+      {
+        "code": 2063,
+        "name": "Flags Ceiling Exceeded",
+        "desc": "<FLAGS> enum exceeds 64 constants"
+      },
+      {
+        "code": 2064,
+        "name": "Decimal Literal Required",
+        "desc": "<DECIMAL> constant assigned without 'd' suffix"
+      },
+      {
+        "code": 2065,
+        "name": "Unknown Enum Backing Type",
+        "desc": "<TYPE> parameter is not a permitted backing type"
+      },
+      {
+        "code": 2070,
+        "name": "Invalid Default Expression",
+        "desc": "Default uses a forbidden function"
+      },
+      {
+        "code": 2071,
+        "name": "Default Type Mismatch",
+        "desc": "Default expression return type does not match field type"
+      },
+      {
+        "code": 2072,
+        "name": "@materialized on Expression Field",
+        "desc": "@materialized is only valid on @computed(TRAVERSE) fields. Applying it to @computed(EXPRESSION) fields is forbidden."
+      },
+      {
+        "code": 2073,
+        "name": "Retired",
+        "desc": "Code retired in v0.20 (formerly @materialized/@volatile conflict on Expression)."
+      },
+      {
+        "code": 2074,
+        "name": "Computed Field Name Collision",
+        "desc": "@computed entry name matches an existing global field."
+      },
+      {
+        "code": 2080,
+        "name": "Invalid Cardinality Expression",
+        "desc": "Malformed cardinality bounds"
+      },
+      {
+        "code": 3001,
+        "name": "Unique Constraint Violated",
+        "desc": "Value already exists"
+      },
+      {
+        "code": 3002,
+        "name": "Role Uniqueness Constraint Required",
+        "desc": "Role-based MERGE requires @unique constraint"
+      },
+      {
+        "code": 3011,
+        "name": "Node Constraint Violated",
+        "severity": "ERROR",
+        "message": "Node constraint violated: '{constraint_name}' on type '{type_name}'"
+      },
+      {
+        "code": 3012,
+        "name": "Role Constraint Violated",
+        "severity": "ERROR",
+        "message": "Role constraint violated: '{constraint_name}' on type '{type_name}'"
+      },
+      {
+        "code": 3013,
+        "name": "Edge Constraint Violated",
+        "severity": "ERROR",
+        "message": "Edge constraint violated: '{constraint_name}' on type '{type_name}'"
+      },
+      {
+        "code": 3014,
+        "name": "Role Cardinality Violated",
+        "desc": "Node count for role is outside declared bounds."
+      },
+      {
+        "code": 3015,
+        "name": "Missing Required Field",
+        "desc": "Non-nullable field with no default omitted from CREATE"
+      },
+      {
+        "code": 3020,
+        "name": "Max Constraints Exceeded",
+        "desc": "Too many constraints per node"
+      },
+      {
+        "code": 3021,
+        "name": "Expression Depth Exceeded",
+        "desc": "Constraint expression too complex"
+      },
+      {
+        "code": 3022,
+        "name": "Constraint Timeout",
+        "desc": "Evaluation took too long"
+      },
+      {
+        "code": 3023,
+        "name": "Read-Only Field Violation",
+        "desc": "Attempt to modify a field which is immutable (e.g., _id or @readonly field after creation)."
+      },
+      {
+        "code": 3024,
+        "name": "Materialized Property Update Failed",
+        "desc": "@materialized property recomputation failed"
+      },
+      {
+        "code": 3030,
+        "name": "Migration Validation Failed",
+        "desc": "Existing data violates new constraint"
+      },
+      {
+        "code": 3031,
+        "name": "Schema Evolution Conflict",
+        "desc": "Concurrent schema modifications conflict"
+      },
+      {
+        "code": 3040,
+        "name": "Circular Dependency",
+        "desc": "Constraint cycle detected (use @deferred)"
+      },
+      {
+        "code": 4001,
+        "name": "Referential Integrity Violation",
+        "category": "4xxx Runtime Errors",
+        "severity": "ERROR",
+        "message": "Cannot delete a node that has active edge connections or is referenced by a non-nullable Node<T> or List<Node<T>> field.",
+        "details": { "node_id": "NodeId", "connected_edge_count": "u64", "referencing_field_count": "u64" },
+        "suggestions": [
+          "Use DETACH DELETE to remove all edge connections before deletion.",
+          "Ensure no non-nullable Node<T> fields reference this node before deletion.",
+          "Query referencing fields: MATCH (n) WHERE n.someNodeField = $id RETURN n;"
+        ]
+      },
+      {
+        "code": 4010,
+        "name": "Retired",
+        "desc": "Code retired in v0.20 (formerly Abstract Node Instantiation). Superseded by [2032] for the Trait case."
+      },
+      {
+        "code": 4011,
+        "name": "Abstract Edge Instantiation",
+        "desc": "createEdge() called with an abstract EdgeHandle."
+      },
+      {
+        "code": 4012,
+        "name": "Invalid Parameter Value",
+        "desc": "Parameter value violates constraints."
+      },
+      {
+        "code": 4013,
+        "name": "Subquery Timeout",
+        "desc": "@computed(TRAVERSE) exceeded timeout limit."
+      },
+      {
+        "code": 4020,
+        "name": "Variable Not Found",
+        "desc": "Variable used before declaration"
+      },
+      {
+        "code": 4021,
+        "name": "Immutable Violation",
+        "desc": "Reassignment of a CONST variable"
+      },
+      {
+        "code": 4022,
+        "name": "Recursion Limit Exceeded",
+        "desc": "Call stack exceeded max_recursion_depth"
+      },
+      {
+        "code": 4023,
+        "name": "Loop Limit Exceeded",
+        "desc": "Iteration count exceeded max_loop_iterations"
+      },
+      {
+        "code": 4024,
+        "name": "UDF Runtime Error",
+        "desc": "UDF threw an unhandled error in constraint context -> maps to [3015]"
+      },
+      {
+        "code": 5001,
+        "name": "Deadlock Victim",
+        "category": "5xxx Transaction Errors",
+        "severity": "ERROR",
+        "message": "Transaction aborted: selected as deadlock victim.",
+        "details": { "transaction_id": "String" },
+        "suggestions": [
+          "Retry the transaction.",
+          "Reorder operations to acquire locks in a consistent global order.",
+          "Keep transactions short to reduce deadlock probability."
+        ]
+      },
+      {
+        "code": 5002,
+        "name": "Transaction Aborted",
+        "desc": "Concurrent modification conflict"
+      },
+      {
+        "code": 5003,
+        "name": "Prepared Statement Not Found",
+        "desc": "Referenced prepared statement doesn't exist"
+      },
+      {
+        "code": 5010,
+        "name": "Too Many Prepared Statements",
+        "desc": "Session prepared statement limit exceeded. DROP unused statements before preparing new ones."
+      },
+      {
+        "code": 6010,
+        "name": "Index Corruption",
+        "desc": "Index structure corrupted, rebuild required"
+      },
+      {
+        "code": 6020,
+        "name": "Materialized View Maintenance Failed",
+        "desc": "Incremental update failed"
+      },
+      {
+        "code": 6021,
+        "name": "Materialized View Stale",
+        "desc": "View marked stale; falls back to partition scan."
+      },
+      {
+        "code": 9010,
+        "name": "Permission Denied",
+        "desc": "Operation requires a permission the authenticated user does not hold."
+      },
+      {
+        "code": 9011,
+        "name": "Access Policy Filtered",
+        "desc": "Internal. Access policy caused node/edge to be excluded. Not surfaced to the querying user."
+      },
+      {
+        "code": 9020,
+        "name": "User Not Found",
+        "desc": "Referenced user does not exist."
+      },
+      {
+        "code": 9021,
+        "name": "Access Role Not Found",
+        "desc": "Referenced access role does not exist."
+      }
+    ],
+    "warnings": [
+      {
+        "code": "[WARN-PERM-001]",
+        "name": "Silent Subtype Exclusion",
+        "desc": "One or more subtypes were excluded from a polymorphic MATCH due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
+      },
+      {
+        "code": "[WARN-PERM-002]",
+        "name": "Silent Role Traversal Exclusion",
+        "desc": "One or more role-bound nodes were excluded from traversal results due to permission boundaries. Enable STRICT_PERMISSIONS to convert to hard errors."
+      },
+      {
+        "code": "[WARN-SCHEMA-002]",
+        "name": "Deprecated ? role suffix",
+        "desc": "Use (0..1) cardinality instead"
+      },
+      {
+        "code": "[WARN-SCHEMA-003]",
+        "name": "Inline Field Declaration (Pre-v0.19)",
+        "desc": "v0.19 requires extraction to DEFINE FIELD."
+      },
+      {
+        "code": "[WARN-SCHEMA-004]",
+        "name": "Union Column Alias Mismatch",
+        "desc": "UNION branches provide different aliases for the same column position. Left branch alias is used in the output."
+      },
+      {
+        "code": "[WARN-PERF-001]",
+        "name": "Computed property in WHERE",
+        "desc": "Executes subquery for each scanned row"
+      },
+      {
+        "code": "[WARN-PERF-002]",
+        "name": "UDF in WHERE",
+        "desc": "UDF without selective index-backed predicates"
+      },
+      {
+        "code": "[WARN-PERF-004]",
+        "name": "Dynamic Traversal Materialization",
+        "desc": "Emitted in two conditions: (1) A CROSS_TYPE query falls back to a full cross-partition scan because no eligible materialized view covers the query predicate, or an eligible view is stale. (2) A @computed(TRAVERSE) @materialized field uses a variable-depth traversal pattern for which static write-trigger derivation is incomplete, meaning freshness cannot be guaranteed."
+      },
+      {
+        "code": "[WARN-PERF-005]",
+        "name": "Unindexed Node<T> Reverse Traversal",
+        "desc": "A query performs a reverse lookup on a Node<T> field that is not @indexed. This forces a scan of all partitions containing that field. [Decision 16]"
+      },
+      {
+        "code": "[WARN-PERF-003]",
+        "name": "Retired",
+        "desc": "Code retired in v0.20 alongside the removal of the @cold decorator."
+      }
+    ]
+  },
+  "queryplan_persistence": {
+    "section": "I. QueryPlan Persistence",
+    "dual_serialization_format": [
+      {
+        "format": "Canonical HyperQL string",
+        "purpose": "Interchange, export, inspection, and migration."
+      },
+      {
+        "format": "Binary QueryNode tree",
+        "purpose": "Optimized on-disk storage for internal runtime access."
+      }
+    ],
+    "lifecycle": "Plans have states: valid, invalid (produced error [2023]), or pending (during ALTER transaction).",
+    "revalidation_on_alter": [
+      "1. ALTER identifies affected type/field handles.",
+      "2. Engine locates all stored plans referencing affected handles.",
+      "3. Each plan is revalidated synchronously against the new schema.",
+      "4. Plans failing revalidation are marked 'invalid'; others remain 'valid'.",
+      "5. ALTER does not commit until all revalidation is complete.",
+      "6. If the ALTER itself is rolled back (e.g. due to a migration validation failure [3030]), all plan validity states are restored to their pre-ALTER values. No plan is left in 'invalid' state as a result of an ALTER that did not commit."
+    ]
+  },
+  "introspection_return_types": {
+    "section": "K. Introspection Return Types",
+    "ExplainResult": {
+      "fields": [
+        "plan_summary: String",
+        "stages: []ExplainStage",
+        "estimated_rows: u64",
+        "index_usage: []IndexUsageInfo",
+        "warnings: []String"
+      ]
+    },
+    "AnalyzeResult": {
+      "fields": [
+        "results: typed result set",
+        "actual_rows: u64",
+        "execution_time_ms: f64",
+        "stages: []AnalyzeStage"
+      ]
+    },
+    "SchemaId": "UUID v7 assigned to every schema construct at definition time. Stable and retired on DROP.",
+    "HandleAliases": {
+      "NodeHandle": "Alias for SchemaId identifying a node type.",
+      "EdgeHandle": "Alias for SchemaId identifying an edge type.",
+      "FieldHandle": "Alias for SchemaId identifying a field definition.",
+      "TraitHandle": "Alias for SchemaId identifying a trait definition."
+    },
+    "NodeTypeInfo": {
+      "fields": [
+        "schema_id: SchemaId",
+        "handle: NodeHandle",
+        "name: String",
+        "abstract: bool",
+        "fields: []FieldInfo",
+        "constraints: []ConstraintInfo",
+        "extends: []NodeHandle | TraitHandle /* empty if no parents; one or more for EXTENDS [T1, T2, ...]; may reference both concrete node types and Traits", */
+        "primary_field: SchemaId? /* engine-inferred @unique @index field", */
+        "display_field: SchemaId? /* user-declared display label for the type" */
+      ],
+      "notes": [
+        "schema_id and handle carry the same value. handle is retained for compatibility.",
+        "primary_field is the SchemaId of the field carrying both @unique and @index, if exactly one such field exists.",
+        "display_field is declared via display: metadata key. Resolved to SchemaId at definition time. Inherited from unambiguous parent if not declared."
+      ]
+    },
+    "EdgeTypeInfo": {
+      "fields": [
+        "schema_id: SchemaId",
+        "handle: EdgeHandle",
+        "name: String",
+        "abstract: bool",
+        "fields: []FieldInfo",
+        "roles: []InlineRoleInfo",
+        "constraints: []ConstraintInfo",
+        "extends: []EdgeHandle",
+        "primary_field: SchemaId? /* engine-inferred @unique @index field", */
+        "display_field: SchemaId? /* user-declared display label for the edge" */
+      ],
+      "notes": [
+        "primary_field follows same inference rule as NodeTypeInfo.",
+        "display_field follows same inheritance rules as NodeTypeInfo."
+      ]
+    },
+    "InlineRoleInfo": {
+      "fields": [
+        "name: String",
+        "direction: Source | Target | Bidirectional",
+        "cardinality: CardinalitySpec",
+        "allows: []AllowedTypeInfo",
+        "constraints: []ConstraintInfo"
+      ]
+    },
+    "AllowedTypeInfo": {
+      "fields": [
+        "type_handle: NodeHandle | TraitHandle",
+        "constraints: []ConstraintInfo /* per-type constraints within the role" */
+      ]
+    },
+    "TraitInfo": {
+      "fields": [
+        "schema_id: SchemaId",
+        "handle: TraitHandle",
+        "name: String",
+        "fields: []FieldInfo",
+        "constraints: []ConstraintInfo",
+        "extends: []TraitHandle",
+        "display_field: SchemaId?"
+      ]
+    },
+    "FieldInfo": {
+      "fields": [
+        "schema_id: SchemaId",
+        "name: String",
+        "type: String /* e.g. \"String\", \"Node<Person>\", \"List<Node<Project>>\" */",
+        "nullable: bool",
+        "decorators: []String",
+        "default: String?",
+        "structural_constraints: []FieldConstraintInfo"
+      ]
+    },
+    "FieldConstraintInfo": {
+      "fields": [
+        "decorator: String /* e.g. \"@min\", \"@max\", \"@pattern\"", */
+        "value: String /* the argument as a string" */
+      ]
+    },
+    "ExplainConstraintResult": {
+      "fields": [
+        "constraint_name:    String,      /* fully qualified Type.ConstraintName", */
+        "expression:         String,      /* constraint expression as canonical HyperQL string", */
+        "referenced_fields:  []String,    /* fields accessed during evaluation", */
+        "estimated_cost:     String,      /* \"low\" | \"medium\" | \"high\"", */
+        "uses_udf:           bool",
+        "deferred:           bool",
+        "warnings:           []String     /* e.g. \"UDF in constraint may slow bulk writes\"" */
+      ]
+    },
+    "AnalyzeConstraintResult": {
+      "fields": [
+        "constraint_name:    String",
+        "passed:             bool",
+        "rows_evaluated:     u64",
+        "violation_count:    u64",
+        "sample_violations:  []NodeId",
+        "execution_time_ms:  f64",
+        "avg_eval_time_us:   f64          /* average per-row evaluation in microseconds" */
+      ]
+    },
+    "ExplainStage": {
+      "fields": [
+        "stage_type: String — the QueryNode variant name (e.g. 'MatchNode', 'WhereNode')",
+        "description: String — human-readable description of what this stage does",
+        "estimated_rows: u64 — estimated rows entering this stage",
+        "index_used: ?String — name of the index used at this stage, if any"
+      ]
+    },
+    "AnalyzeStage": {
+      "fields": [
+        "stage_type: String — the QueryNode variant name",
+        "actual_rows_in: u64 — rows entering this stage",
+        "actual_rows_out: u64 — rows produced by this stage",
+        "time_ms: f64 — wall-clock time spent in this stage",
+        "index_used: ?String — index used at this stage, if any"
+      ]
+    },
+    "ShowNodeTypesResult": {
+      "description": "Return type of SHOW NODE TYPES.",
+      "fields": ["types: []NodeTypeInfo — one entry per defined node type"]
+    },
+    "ConstraintInfo": {
+      "description": "One entry in NodeTypeInfo.constraints.",
+      "fields": [
+        "name: String",
+        "expression: String",
+        "deferred: bool"
+      ]
+    },
+    "ValidateConstraintResult": {
+      "description": "Return type of VALIDATE CONSTRAINT Type.ConstraintName.",
+      "fields": [
+        "constraint_name: String — the fully qualified constraint name (Type.name)",
+        "passed: bool — true if all existing data satisfies the constraint",
+        "violation_count: u64 — number of existing rows that violate the constraint; 0 if passed",
+        "sample_violations: []NodeId — up to 10 example violating node IDs for debugging"
+      ]
+    },
+    "ValidateViewResult": {
+      "description": "Return type of VALIDATE VIEW ViewName.",
+      "fields": [
+        "view_name: String",
+        "valid: bool",
+        "errors: []String — list of type-checking or resolution errors"
+      ]
+    },
+    "ShowPreparedStatementsResult": {
+      "description": "Return type of SHOW PREPARED STATEMENTS.",
+      "fields": [
+        "statements: []PreparedStatementInfo"
+      ]
+    },
+    "PreparedStatementInfo": {
+      "fields": [
+        "name: String",
+        "created_at: DateTime",
+        "validity: String — 'valid' | 'invalid'"
+      ]
+    }
+  },
+  "constraint_examples": {
+    "node_constraints": [
+      {
+        "description": "Named constraints for clarity",
+        "query": "DEFINE NODE BankAccount { account_number, balance, overdraft_limit } { constraints: { valid_balance: balance >= -overdraft_limit, has_account_number: account_number != \"\", positive_overdraft: overdraft_limit >= 0 } };"
+      }
+    ],
+    "role_constraints": [
+      {
+        "description": "Inline role with constraints",
+        "query": "DEFINE EDGE Marriage {\n  husband <- (ONE) ALLOWS Person {\n    constraints: { of_age: husband.age >= 18 }\n  },\n  wife <- (ONE) ALLOWS Person {\n    constraints: { of_age: wife.age >= 18 }\n  },\n  date\n};"
+      }
+    ],
+    "edge_constraints": [
+      {
+        "description": "Relationship validation",
+        "query": "DEFINE EDGE Marriage { husband <- (ONE) ALLOWS Person, wife <- (ONE) ALLOWS Person, date } { constraints: { different_people: husband != wife, valid_date: date <= NOW() } };"
+      }
+    ],
+    "error_reporting": [
+      {
+        "description": "Named constraint failure",
+        "error": "Error [3011]: Node constraint violated: 'valid_age' on type 'Person'"
+      }
+    ]
+  },
+  "query_examples": {
+    "single_role_edges": [
+      {
+        "description": "Friendship",
+        "schema": "DEFINE EDGE Friendship { friend <- (MANY) ALLOWS Person };",
+        "usage": [
+          {
+            "create": "CREATE EDGE f:Friendship { friend => alice, friend => bob };",
+            "query": "MATCH (p:Person { name: \"Alice\" }), (f:Friendship { friend => p }) RETURN f.friend AS all_friends;"
+          }
+        ]
+      }
+    ],
+    "bidirectional_edges": [
+      {
+        "description": "Symmetric relationship",
+        "schema": "DEFINE EDGE Friendship { friend <-> (MANY) ALLOWS Person };",
+        "usage": [
+          {
+            "create": "CREATE EDGE f:Friendship { friend => [alice, bob] };",
+            "query": "MATCH (a:Person { name: \"Alice\" })-[:Friendship]-(b:Person) RETURN b.name;"
+          }
+        ]
+      }
+    ],
+    "path_queries": [
+      {
+        "description": "Bottleneck Path",
+        "query": "MATCH PATH p = (a)-[:Link* WEIGHT BY latency USING MAX]->(b) RETURN p;"
+      }
+    ],
+    "subqueries": [
+      {
+        "description": "EXISTS - Find people who have recent commutes",
+        "query": "MATCH (p:Person) WHERE EXISTS ( MATCH (c:Commute {driver => p}) WHERE c.Date > \"2025-01-01\" ) RETURN p.Name;"
+      }
+    ],
+    "mutations": [
+      {
+        "description": "Role-Binding MERGE",
+        "query": "MERGE (e:Enrollment { student => s, course => c }) ON CREATE SET e.Date = NOW();"
+      },
+      {
+        "description": "Atomic List Append (Set Arithmetic)",
+        "query": "MATCH (c:Commute) SET c.passengers += new_passenger;"
+      },
+      {
+        "description": "Atomic List Remove",
+        "query": "MATCH (c:Commute) SET c.passengers -= old_passenger;"
+      }
+    ],
+    "global_search": [
+      {
+        "description": "Cross-Type Global Search",
+        "query": "MATCH (n) CROSS_TYPE WHERE n.LastName = 'Smith' RETURN n, TYPE(n);"
+      }
+    ],
+    "indexing": [
+      {
+        "description": "Define composite index",
+        "query": "DEFINE INDEX NameIndex ON Person (LastName, FirstName);"
+      },
+      {
+        "description": "Vector similarity search",
+        "query": "DEFINE FIELD Embedding: Vector<384> @index(vector, metric=\"cosine\");\n\nMATCH (p:Person)\nWHERE VECTOR_SIMILARITY(p.Embedding, $query_embedding) > 0.8\nRETURN p\nORDER BY VECTOR_SIMILARITY(p.Embedding, $query_embedding) DESC\nLIMIT 10;"
+      },
+      {
+        "description": "Full-text search with index hint",
+        "query": "MATCH (p:Person)\nUSE INDEX DescriptionFulltext\nWHERE p.Description MATCHES \"avatar.*fire\"\nRETURN p;"
+      }
+    ],
+    "pattern_matching": [
+      {
+        "description": "String pattern matching combinations",
+        "query": "MATCH (p:Person)\nWHERE p.Name LIKE \"A%\"\n  AND p.Email ILIKE \"%@gmail.com\"\n  AND p.Phone MATCHES \"^\\\\d{3}-\\\\d{3}-\\\\d{4}$\"\nRETURN p;"
+      },
+      {
+        "description": "Complex conditionals with pattern matching",
+        "query": "MATCH (p:Person)\nRETURN p.Name,\n  MATCH p.Status {\n    ACTIVE => \"Currently Active\",\n    PENDING => \"Awaiting Approval\",\n    INACTIVE => \"Not Active\",\n    _ => \"Unknown Status\"\n  } AS status_label;"
+      }
+    ],
+    "null_handling": [
+      {
+        "description": "Null checks with optional fields",
+        "query": "MATCH (p:Person)\nWHERE p.MiddleName IS NOT NULL\n  AND p.Nickname != null\nRETURN p.Name, COALESCE(p.Nickname, p.FirstName) AS display_name;"
+      },
+      {
+        "description": "OPTIONAL MATCH with null filtering",
+        "query": "MATCH (p:Person)\nOPTIONAL MATCH (f:Person)-[:Friendship]-(p)\nWHERE f IS NOT NULL\nRETURN p.Name, COLLECT(f.Name) AS friends;"
+      }
+    ],
+    "pagination_and_ordering": [
+      {
+        "description": "Paginated sorted results",
+        "query": "MATCH (p:Person)\nRETURN p.Name, p.Age, p.Department\nORDER BY p.Department ASC, p.Age DESC\nSKIP 20\nLIMIT 10;"
+      },
+      {
+        "description": "Top N with distinct",
+        "query": "MATCH (p:Person)\nRETURN DISTINCT p.Department, AVG(p.Salary) AS avg_sal\nGROUP BY p.Department\nORDER BY avg_sal DESC\nLIMIT 5;"
+      }
+    ],
+    "window_functions": [
+      {
+        "description": "Running totals and rankings",
+        "query": "MATCH (s:Sale)\nRETURN s.Date, s.Product, s.Amount,\n  SUM(s.Amount) OVER (ORDER BY s.Date) AS running_total,\n  RANK() OVER (PARTITION BY s.Product ORDER BY s.Amount DESC) AS product_rank;"
+      },
+      {
+        "description": "Period-over-period comparison",
+        "query": "MATCH (m:MonthlyMetric)\nRETURN m.Month, m.Revenue,\n  LAG(m.Revenue, 1) OVER (ORDER BY m.Month) AS prev_month,\n  (m.Revenue - LAG(m.Revenue, 1) OVER (ORDER BY m.Month)) / \n    LAG(m.Revenue, 1) OVER (ORDER BY m.Month) * 100 AS growth_pct;"
+      }
+    ],
+    "graph_algorithms": [
+      {
+        "description": "PageRank with defaults",
+        "query": "WITH PAGERANK(Person, Follows) AS scores\nMATCH (p:Person)\nRETURN [ p.Name, scores[p] AS influence ]\nORDER BY influence DESC\nLIMIT 10;"
+      },
+      {
+        "description": "PageRank with explicit options",
+        "query": "WITH PAGERANK(Person, Follows, damping: 0.90, max_iterations: 50) AS scores\nMATCH (p:Person)\nRETURN [ p.Name, scores[p] AS influence ]\nORDER BY influence DESC;"
+      },
+      {
+        "description": "Detect communities",
+        "query": "WITH LOUVAIN(User, Collaboration) AS communities\nMATCH (u:User)\nRETURN [\n  communities[u]  AS community_id,\n  COUNT(u)        AS members,\n  COLLECT(u.Name) AS member_names\n]\nGROUP BY communities[u]\nORDER BY members DESC;"
+      },
+      {
+        "description": "Find network bottlenecks",
+        "query": "WITH BETWEENNESS_CENTRALITY(Server, Connection) AS scores\nMATCH (s:Server)\nWHERE scores[s] > 0.7\nRETURN [ s.Name, scores[s] AS bottleneck_score ]\nORDER BY bottleneck_score DESC;"
+      },
+      {
+        "description": "Point-pair Jaccard in WHERE (scalar form)",
+        "query": "MATCH (me:User { Id: $user_id }), (other:User)\nWHERE other.Id != me.Id\n  AND JACCARD_SIMILARITY(me, other, Interests) > 0.3\nRETURN [ other.Name, JACCARD_SIMILARITY(me, other, Interests) AS similarity ]\nORDER BY similarity DESC;"
+      }
+    ],
+    "complex_workflows": [
+      {
+        "description": "Multi-stage analysis pipeline",
+        "query": "-- Stage 1: Find active users\nMATCH (u:User)\nWHERE u.LastLogin > \"2025-01-01\"\nWITH u\n\n/* Stage 2: Calculate their activity scores\nWITH u, \n  (MATCH (u)-[:Posted]->(p:Post) RETURN COUNT(p)) AS post_count,\n  (MATCH (u)-[:Liked]->(l) RETURN COUNT(l)) AS like_count\nWITH u, post_count, like_count,\n  post_count * 2 + like_count AS activity_score\n\n-- Stage 3: Rank and filter\nWITH u, activity_score,\n  RANK() OVER (ORDER BY activity_score DESC) AS rank\nWHERE rank <= 100\n\nRETURN u.Name, activity_score, rank\nORDER BY rank;" */
+      },
+      {
+        "description": "Recommendation engine",
+        "query": "-- Find similar users based on shared interests\nMATCH (me:User {Id: $user_id})\nMATCH (other:User)\nWHERE other.Id != me.Id\n  AND JACCARD_SIMILARITY(me, other, Interests) > 0.3\nWITH other, JACCARD_SIMILARITY(me, other, Interests) AS similarity\n\n/* Get items they liked that I haven't\nMATCH (other)-[:Liked]->(item:Item)\nWHERE NOT EXISTS (MATCH (me)-[:Liked]->(item))\n\n-- Aggregate and rank recommendations\nWITH item, SUM(similarity) AS total_similarity, COUNT(other) AS recommender_count\nWHERE recommender_count >= 3\nRETURN item.Name, total_similarity, recommender_count\nORDER BY total_similarity DESC\nLIMIT 20;" */
+      }
+    ]
+  },
+  "best_practices": {
+    "query_optimization": [
+      {
+        "pattern": "Avoid N+1 queries",
+        "reason": "Single query with aggregation eliminates round trips"
+      },
+      {
+        "pattern": "Use global field definitions",
+        "reason": "Enables reuse, prevents type drift, required by EXTENDS"
+      },
+      {
+        "pattern": "Prefer @materialized for hot paths",
+        "reason": "Trades write cost for read performance"
+      },
+      {
+        "pattern": "Use indexes for filtering",
+        "anti_pattern": "MATCH (p:Person) WHERE p.email = $email",
+        "better": "DEFINE FIELD email: String @unique @index; /* Then same query uses index", */
+        "reason": "Filtered scans are O(n), indexed lookups are O(log n)"
+      },
+      {
+        "pattern": "Filter early in pipeline",
+        "anti_pattern": "MATCH (p:Person)-[:Friend]-(f) WITH p, COLLECT(f) AS friends WHERE p.age > 30 RETURN p, friends;",
+        "better": "MATCH (p:Person) WHERE p.age > 30 MATCH (p)-[:Friend]-(f) RETURN p, COLLECT(f) AS friends;",
+        "reason": "Reduces intermediate result set size"
+      }
+    ],
+    "transaction_management": [
+      {
+        "pattern": "Batch writes in transactions",
+        "reason": "Reduces commit overhead, enables atomic operations",
+        "example": "BEGIN; CREATE NODE [ p1:Person {...}, p2:Person {...} ]; COMMIT;",
+        "guideline": "Batch 100-1000 operations per transaction"
+      },
+      {
+        "pattern": "Use prepared statements with parameters",
+        "reason": "Query plan caching, prevents injection, type safety",
+        "example": "PREPARE stmt AS MATCH (p:Person { id: $id }) RETURN p;"
+      },
+      {
+        "pattern": "Keep transactions short",
+        "reason": "Long transactions hold locks, blocking other operations",
+        "guideline": "Target < 1 second transaction duration"
+      }
+    ],
+    "data_modeling": [
+      {
+        "pattern": "Model relationships as hyperedges",
+        "reason": "Captures multi-party relationships and relationship properties",
+        "example": "DEFINE EDGE Meeting {\n  organizer <- (ONE) ALLOWS Person,\n  attendees <- (MANY) ALLOWS Person,\n  date,\n  location\n};"
+      },
+      {
+        "pattern": "Use Structs for embedded data",
+        "reason": "No identity needed, not queryable as separate entities. Pure value containers with storage locality.",
+        "example": "DEFINE STRUCT GeoPoint { Latitude, Longitude }; DEFINE NODE Place { Location: Struct<GeoPoint> };"
+      },
+      {
+        "pattern": "Use Node<T> for identity-based composition",
+        "reason": "Child needs independent identity, queryability, or edge participation, but the relationship is compositional and directional with no properties of its own.",
+        "example": "DEFINE FIELD home_address: Node<Address>?; /* Address can be shared, queried, and connected to edges */"
+      },
+      {
+        "pattern": "Use Enums for closed value sets",
+        "reason": "Type safety, prevents invalid values",
+        "example": "DEFINE ENUM Status { ACTIVE, INACTIVE, PENDING };"
+      }
+    ]
+  },
+  "migration_guide": {
+    "description": "Common schema evolution scenarios",
+    "scenarios": [
+      {
+        "scenario": "Adding a nullable field",
+        "steps": [
+          "1. Define field: DEFINE FIELD middle_name: String?;",
+          "2. Add to node: ALTER NODE Person { ADD middle_name };"
+        ]
+      },
+      {
+        "scenario": "Renaming a field",
+        "steps": [
+          "1. Add new field: ALTER NODE Person { ADD full_name };",
+          "2. Copy data: MATCH (p:Person) SET p.full_name = p.name;",
+          "3. Drop old field: ALTER NODE Person { DROP name };"
+        ]
+      },
+      {
+        "scenario": "Adding a non-null field with default",
+        "steps": [
+          "1. Define field: DEFINE FIELD status: Enum<Status>;",
+          "2. Migrate with default: ALTER NODE Person { ADD status} DEFAULTS { status: Status.ACTIVE };",
+          "3. All existing rows get default value"
+        ],
+        "safe": true,
+        "notes": "Requires default value for existing data"
+      },
+      {
+        "scenario": "Adding a constraint to existing type",
+        "steps": [
+          "1. Validate first: VALIDATE MIGRATION Person WITH { constraints: { valid_age: age >= 0 AND age <= 150 } };",
+          "2. Review violations in validation report",
+          "3. Fix violating data: UPDATE (p:Person) WHERE p.age < 0 OR p.age > 150 SET p.age = null;",
+          "4. Apply constraint: ALTER NODE Person { ADD CONSTRAINT valid_age: age >= 0 AND age <= 150 };"
+        ],
+        "safe": false,
+        "error_on_violation": "[3030] Migration Validation Failed",
+        "notes": "All existing data must satisfy new constraint or ALTER fails"
+      },
+      {
+        "scenario": "Splitting a node type",
+        "steps": [
+          "1. Define new type: DEFINE NODE Employee EXTENDS Person { employee_id, hire_date };",
+          "2. Migrate subset: MATCH (p:Person) WHERE p.is_employee MIGRATE p TO Employee MAP { DROP [is_employee] };",
+          "3. Original Person nodes remain, matching nodes become Employee"
+        ],
+        "safe": true,
+        "notes": "Uses EXTENDS for field inheritance"
+      },
+      {
+        "scenario": "Merging edge types",
+        "steps": [
+          "1. Define combined edge: DEFINE EDGE Communication EXTENDS [Email, PhoneCall] { medium: Enum<Medium> };",
+          "2. Migrate Email: MATCH (e:Email) MIGRATE e TO Communication DEFAULTS { medium: Medium.EMAIL };",
+          "3. Migrate PhoneCall: MATCH (p:PhoneCall) MIGRATE p TO Communication DEFAULTS { medium: Medium.PHONE };"
+        ],
+        "safe": true,
+        "notes": "Use discriminator field to preserve original type info. Communication inherits all roles from Email and PhoneCall via EXTENDS. Localized roles are merged into the subtype's role set."
+      },
+      {
+        "scenario": "Handling constraint violations during migration",
+        "approach": "Strict validation prevents bad migrations",
+        "example": "-- This fails if any person.age > 150:\nALTER NODE Person { ADD CONSTRAINT max_age: age <= 150 };\n/* Error [3030]: Migration Validation Failed\n--   Violated by: [person_id_123, person_id_456]\n--   Constraint: max_age (age <= 150)\n\n-- Fix violating data first:\nMATCH (p:Person) WHERE p.age > 150 SET p.age = null;\n-- Then retry ALTER" */
+      }
+    ],
+    "validation_workflow": {
+      "description": "Recommended workflow for safe migrations",
+      "steps": [
+        "1. VALIDATE MIGRATION - Preview impact without changes",
+        "2. Review validation report - Check for violations",
+        "3. Fix violating data - Update or delete as appropriate",
+        "4. Re-validate - Confirm all issues resolved",
+        "5. Apply migration - ALTER or MIGRATE",
+        "6. Verify - Query sample data to confirm"
+      ]
+    }
+  },
+  "version_history": {
+    "0.20": {
+      "release_date": "2026-03-13",
+      "major_features": [
+        "Node<T> Composition Type: First-class identity-based composition resolving the gap between Struct-composition and edge-association.",
+        "Fully localized roles: ALLOWS, constraints, and names moved to edge scope. DEFINE ROLE removed.",
+        "ABSTRACT NODE removed. Traits promoted to first-class graph participants: queryable, valid in role ALLOWS, constraint-bearing, never instantiated.",
+        "Anonymous constraints removed. All constraints must be named.",
+        "Field-level structural constraint decorators added: @min, @max, @minlength, @maxlength, @pattern, @precision.",
+        "@volatile removed.",
+        "@cold removed.",
+        "Per-file STRICT_MODE removed. STRICT_PERMISSIONS unaffected.",
+        "Persistent prepared statements removed. Session-scoped only.",
+        "IF NOT EXISTS guard added to all definition statements.",
+        "DEFINE VIEW: non-materialized named query fragments, parameterizable, composable, inline-expanded at plan time.",
+        "DEFINE UNION: sum/tagged union types for UDF return values with exhaustive pattern matching.",
+        "FLAGS enum retained.",
+        "Multiple inheritance via EXTENDS retained.",
+        "Structs retained as globally-defined value types with inline storage guarantees. Distinct from Traits.",
+        "Block comment syntax /* */ formally specified as the only supported comment form. Line comments (//) are not supported. Prior versions left comment syntax implementation-defined."
+      ],
+      "removed_warnings": [
+        "[WARN-PERF-003] - Retired alongside @cold removal."
+      ]
+    },
+    "0.19": {
+      "release_date": "2026-03-08",
+      "major_features": [
+        "The Four-Concept Model: Define, Plan, Run, Begin/Commit [Decision 14].",
+        "Mandatory global DEFINE FIELD: all type bodies reference fields by name only [1052].",
+        "Security Model: DEFINE ACCESS ROLE, CREATE USER, and fine-grained DEFINE ACCESS POLICY.",
+        "Namespace Block Nesting: Block-form DEFINE NAMESPACE may be nested within other block-form namespace declarations to arbitrary depth.",
+        "Namespace Permission Inheritance: Downward-cascading grants with DENY as hard ceiling. CASCADE / NO CASCADE modifiers. STRICT_PERMISSIONS mode for fail-loud behavior.",
+        "Permission Resolution Rules for Inherited Types: Partition authority governs instance data access. Schema dependency and permission dependency are formally separated. Polymorphic subtype visibility and role traversal boundary rules defined.",
+        "SHOW EFFECTIVE PERMISSIONS: Introspection command returning fully resolved permission set for a user against a namespace.",
+        "UDAF Formal Specification: Mandatory STATE, ACCUMULATE, and FINALIZE clauses for DEFINE AGGREGATE FUNCTION.",
+        "HAVING Clause: Post-aggregation filtering for GROUP BY results.",
+        "Prepared Statement Lifecycle: Session-scoped and persistent statements with synchronous revalidation.",
+        "ON ERROR CONTINUE: Formal transaction semantics with TransactionResult and StatementError types.",
+        "Query-Level Graph Algorithm Canonical Form: Positional (Node, Edge) followed by keyword options.",
+        "Universal Schema IDs: every schema construct receives a stable UUID v7 at definition time.",
+        "Universal Instance IDs: every node and edge instance exposes a built-in virtual field `_id` (UUID v7).",
+        "Per-type `display:` metadata: explicit per-type declaration of the canonical display label, replacing @display decorator.",
+        "Scalar Similarity Built-ins: JACCARD_SIMILARITY and COSINE_SIMILARITY for point-pair comparisons.",
+        "UNION Type Compatibility: Formal unification rules for Int/Float, nullability, and abstract parents.",
+        "Tiered Normative Storage Semantics: Observable behavior requirements for all compliant engines.",
+        "Unified Performance Warnings: Redesigned [WARN-PERF-004] for Dynamic Traversal Materialization.",
+        "Synchronous QueryPlan revalidation on schema ALTER [Decision 10].",
+        "New Error Codes: [4001] Connected Node Delete, [2040] Computed mutation, [5001] Deadlock victim, [9010] Permission denied.",
+        "Correction of error [2022] to permit abstract types in role ALLOWS lists.",
+        "Introspection updates: ExplainConstraintResult, AnalyzeConstraintResult, and array-based NodeTypeInfo.extends."
+      ]
+    },
+    "0.18": {
+      "release_date": "TBD",
+      "major_features": [
+        "Normative storage architecture specification (Data-Oriented Design)",
+        "Hybrid column/row storage model: fixed-width fields column-oriented, variable-width in separate heap",
+        "Struct inline storage guarantee: no pointer indirection for embedded Struct fields",
+        "Null bitmap representation: O(1) null checks via per-partition bit vector",
+        "MANY role storage model: @ordered → dynamic array, @unordered → open-addressing hash set",
+        "Edge dual-storage model: edge partition (column store) + role index tables (sorted node_id/edge_id pairs)",
+        "Vector<N> SIMD alignment: 16/32-byte aligned, Struct-of-Arrays layout within partition",
+        "@cold decorator: secondary-partition placement for large infrequently-accessed fields",
+        "@materialized promoted to strongly preferred for @computed(TRAVERSE) in production schemas",
+        "DEFINE MATERIALIZED VIEW: dedicated cross-type indexed partition for CROSS_TYPE queries",
+        "Typed Enum variants: <INT>, <DECIMAL>, <STRING>, <FLAGS>",
+        "FLAGS enum with uN backing type optimization and byte-boundary migration model",
+        "Enum backing values explicitly prohibited as arithmetic operands across all typed variants",
+        "Unit conversion canonical pattern: MassUnit node type with @readonly to_base_factor and @pure UDFs",
+        "Field DEFAULT clause for write-time default values (global field definitions)",
+        "Node-level DEFAULT override: per-type default that overrides global field default",
+        "Edge field DEFAULT clause: DEFAULT on inline edge field definitions",
+        "Three-level default resolution order: explicit > node/edge override > global > null > error",
+        "@pure UDFs explicitly permitted in DEFAULT expressions",
+        "@nondeterministic functions (NOW(), UUID()) explicitly permitted in DEFAULT expressions",
+        "Extended cardinality: exact (N), unbounded (*), range (N..M)",
+        "ONE and MANY formalized as named aliases for (1) and (*)",
+        "Deprecation of ? role suffix in favor of (0..1)",
+        "Cardinality bounds enforced on SET += and SET -= mutations, not only on CREATE",
+        "Unified syntax model: comma-separated [...] array blocks; balanced-delimiter tokenizer guarantee",
+        "Hoisting and five-pass validation for batch definition blocks",
+        "Batch/multi-syntax: DEFINE FIELD, ROLE, NODE, EDGE, and mixed DEFINE [...] blocks",
+        "DEFINE SCHEMA for named importable schema units with ALTER SCHEMA / VALIDATE SCHEMA",
+        "Batch CREATE: CREATE NODE [...], CREATE EDGE [...], and atomic CREATE [NODE, EDGE]",
+        "CREATE [NODE, EDGE] shared variable scope for atomic cross-type creation",
+        "Dot-hierarchy namespace modularization for multi-file schemas",
+        "STRICT_MODE clarified as per-file, not per-namespace",
+        "Namespace block form: DEFINE NAMESPACE Name [...]",
+        "Query block syntax: MATCH [...], WHERE [...], WITH [...], RETURN [...]",
+        "OPTIONAL as per-pattern modifier inside MATCH blocks",
+        "Semantic grouping guideline for batch forms"
+      ],
+      "deprecations": [
+        "role? <- (ONE) syntax — use role <- (0..1) instead. Removed in v0.19. [WARN-SCHEMA-002]"
+      ],
+      "new_error_codes": [
+        "[1010] Namespace Collision",
+        "[1011] Unresolved Import",
+        "[1012] Circular Import",
+        "[2022] Abstract Type in Role ALLOWS",
+        "[2060] Partial Enum Values",
+        "[2061] Duplicate Enum Value",
+        "[2062] Illegal Flags Value",
+        "[2063] Flags Ceiling Exceeded",
+        "[2064] Decimal Literal Required",
+        "[2065] Unknown Enum Backing Type",
+        "[2070] Invalid Default Expression",
+        "[2071] Default Type Mismatch",
+        "[2080] Invalid Cardinality Expression",
+        "[3014] Role Cardinality Violated — on CREATE and on SET +=/-=",
+        "[3015] Missing Required Field — non-nullable field with no default omitted from CREATE",
+        "[6020] Materialized View Maintenance Failed",
+        "[6021] Materialized View Stale"
+      ],
+      "new_warnings": [
+        "[WARN-SCHEMA-002] Deprecated ? role suffix — use (0..1) cardinality instead",
+        "[WARN-PERF-003] Cold field used in filter predicate — reclassify field or restructure query",
+        "[WARN-PERF-004] Cross-type query falling back to partition scan — materialized view stale or missing"
+      ]
+    },
+    "0.17": {
+      "release_date": "2026-03-02",
+      "major_features": [
+        "Scripted User-Defined Functions (UDFs) via DEFINE FUNCTION",
+        "Mandatory Purity Decorators (@pure, @readonly, @nondeterministic)",
+        "Call-Graph Transitivity rule for strict static purity validation",
+        "Block-scoped variables (CONST, VAR) and control flow (WHILE, FOR...IN)",
+        "User-Defined Aggregate Functions (UDAFs) via DEFINE AGGREGATE FUNCTION",
+        "Integration of @pure UDFs into Node/Edge constraints and @computed fields",
+        "Interpreter safety limits (max_recursion_depth, max_loop_iterations)"
+      ]
+    },
+    "0.16": {
+      "release_date": "2026-01-25",
+      "major_features": [
+        "Instance binding operator: => for role-to-node assignment",
+        "Unified three-level constraint system: node, role, and edge constraints",
+        "Dual constraint syntax: anonymous array form and named object form",
+        "Node-level constraints block for entity invariants",
+        "Role-level constraints block for role fulfillment requirements",
+        "Edge-level constraints block for relationship invariants",
+        "Strict role resolution: ad-hoc roles forbidden",
+        "Constraint performance guarantees: write-time validation, zero read overhead",
+        "Clear separation: decorators (@unique, @index) vs constraints (validation logic)"
+      ],
+      "breaking_changes": [
+        "Role binding syntax changed from '->' to '=>' in CREATE EDGE",
+        "All roles must be explicitly defined via DEFINE ROLE (no inline/ad-hoc roles)",
+        "Constraint violations return specific error codes [3011-3013]",
+        "Node and edge definitions now support optional constraints blocks"
+      ],
+      "performance_improvements": [
+        "Documented constraint validation as write-time only",
+        "Zero read-time overhead from constraint system",
+        "Three-level validation pipeline: node -> role -> edge"
+      ],
+      "design_decisions": [
+        "Field-level constraints NOT supported in v0.16 - keeps system simple",
+        "May add field constraints in future versions if DRY benefits outweigh complexity",
+        "Constraint evaluation order ensures data validity at each composition level"
+      ],
+      "minor_features_added": [
+        "Query parameters with $ syntax and type binding",
+        "Edge property filtering in MATCH patterns",
+        "@materialized support for all @computed(TRAVERSE) types, not just PATH",
+        "Bulk property updates via SET += syntax",
+        "Tuple/record return syntax with projection",
+        "Null coalescing (??) and safe navigation (?.) operators",
+        "Enhanced EXPLAIN modes (VERBOSE, JSON)",
+        "Type-specific role constraints for multi-type roles",
+        "Decimal literal syntax (99.99d)",
+        "Bidirectional roles (<->) for symmetric relationships"
+      ],
+      "documentation_improvements": [
+        "Complete query parameter specification",
+        "Detailed @computed cache scope documentation",
+        "Best practices section with anti-patterns",
+        "Migration guide with practical scenarios",
+        "Expanded performance model documentation",
+        "Function overloading resolution rules",
+        "Comprehensive error code coverage"
+      ]
+    },
+    "0.15": {
+      "release_date": "2026-01-23",
+      "major_features": [
+        "Role assignment syntax: replaced ':' with '->' for clarity",
+        "Explicit MERGE semantics: role-based vs property-based matching",
+        "UUID v7 default for time-ordered IDs",
+        "Namespace STRICT_MODE toggle for prototyping",
+        "Composable Polymorphism inheritance model",
+        "BATCH statement and ON ERROR CONTINUE for partial success",
+        "@materialized decorator for path caching"
+      ],
+      "breaking_changes": [
+        "Role assignment syntax changed from ':' to '->'",
+        "MERGE on roles requires @unique constraint (fails otherwise)",
+        "Split CREATE into CREATE NODE and CREATE EDGE",
+        "Mandatory semicolon termination"
+      ]
+    },
+    "0.14": {
+      "release_date": "2026-01-15",
+      "major_features": [
+        "Finalized Implementation Specs",
+        "Strict/Abort Error Model with [XYYY] codes",
+        "Type-Partitioned Storage Architecture",
+        "Role-Binding MERGE & Set Arithmetic (+/-=)",
+        "Automatic Pathfinding Algorithm Switching (SUM/MAX/MIN)",
+        "Per-Row Memoization for @computed(TRAVERSE)",
+        "Explicit Variable Scoping (Hard WITH barrier)"
+      ]
+    },
+    "0.12": {
+      "release_date": "2025-01-10",
+      "major_features": [
+        "Window functions for analytics (ROW_NUMBER, RANK, LAG, LEAD, etc.)",
+        "Graph algorithm built-ins (SHORTEST_PATH, PAGERANK, LOUVAIN, etc.)",
+        "Transaction isolation levels (SET ISOLATION LEVEL)",
+        "Type coercion system with explicit casting",
+        "WEIGHT BY clause with aggregation functions for path queries",
+        "Composite role uniqueness constraints (@unique on edges)",
+        "Query planning and index selection documentation",
+        "Performance warnings for @computed(TRAVERSE)"
+      ],
+      "improvements": [
+        "Clarified MERGE composite key matching semantics",
+        "Added default vector index metric (cosine)",
+        "Documented UNION type compatibility rules",
+        "Added EXPLAIN and ANALYZE for query optimization",
+        "Bulk operation best practices and transaction batching",
+        "Regex escaping documentation",
+        "Date format specification (ISO-8601 UTC)",
+        "UUID version specification (V7)"
+      ],
+      "rationale_additions": [
+        "Explained why inline property definitions are forbidden"
+      ]
+    },
+    "0.11": {
+      "release_date": "2024-12-15",
+      "major_features": [
+        "SQL-style GROUP BY clause for aggregation",
+        "Aggregation functions (COUNT, SUM, AVG, MIN, MAX, COLLECT, STRING_AGG)",
+        "Variable-length path queries (MATCH PATH)",
+        "PATH data type with nodes, edges, roles, length, cost",
+        "Path predicates (ALL, ANY, NONE)",
+        "Role-specific path traversal for hyperedges",
+        "Subquery support (EXISTS, IN)",
+        "DEFINE INDEX for composite multi-field indexes",
+        "Specialized index types (vector, fulltext, hash)",
+        "ORDER BY, LIMIT, SKIP clauses",
+        "DISTINCT keyword",
+        "String pattern matching (LIKE, ILIKE, MATCHES, IMATCHES)",
+        "IS NULL / IS NOT NULL operators",
+        "Conditional expressions (IF, CASE, MATCH)"
+      ],
+      "improvements": [
+        "MERGE with ON CREATE SET and ON MATCH SET",
+        "Enhanced expression language",
+        "Support for aggregating (MANY) role collections"
+      ]
+    },
+    "0.10": {
+      "release_date": "2024-11-01",
+      "major_features": [
+        "Initial hypergraph query language design",
+        "Schema management (DEFINE NAMESPACE, FIELD, ROLE, NODE, EDGE)",
+        "Type system with strict global field definitions",
+        "Migration system (ALTER, VALIDATE MIGRATION, MIGRATE)",
+        "Decorators (@computed, @unique, @index, etc.)",
+        "Basic CRUD operations (CREATE, MATCH, SET, DELETE)",
+        "Transaction support (BEGIN, COMMIT, ROLLBACK)",
+        "Expression language for computed properties"
+      ]
+    }
+  }
+}
